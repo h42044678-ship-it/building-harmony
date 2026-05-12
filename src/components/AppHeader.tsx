@@ -1,5 +1,7 @@
 import { Bell, LogOut, Search, Eye, EyeOff, Building2 } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "@tanstack/react-router";
 
 interface AppHeaderProps {
   userName?: string;
@@ -9,13 +11,17 @@ interface AppHeaderProps {
 
 export function AppHeader({ userName = "علي", balance = 377000, greeting = "صباح الخير" }: AppHeaderProps) {
   const [visible, setVisible] = useState(true);
-  const now = new Date().toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const navigate = useNavigate();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  };
 
   return (
     <header className="bg-gradient-navy text-navy-foreground header-curve px-5 pt-6 pb-20 relative shadow-elevated">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button aria-label="خروج" className="p-2 rounded-xl hover:bg-white/10 transition">
+          <button onClick={handleLogout} aria-label="خروج" className="p-2 rounded-xl hover:bg-white/10 transition">
             <LogOut className="w-5 h-5" />
           </button>
           <button aria-label="إشعارات" className="p-2 rounded-xl hover:bg-white/10 transition relative">
@@ -50,7 +56,6 @@ export function AppHeader({ userName = "علي", balance = 377000, greeting = "�
             {visible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
           </button>
         </div>
-        <div className="text-[11px] opacity-60 mt-2">{now}</div>
       </div>
     </header>
   );
