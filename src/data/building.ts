@@ -3,19 +3,21 @@ export type ApartmentStatus = "paid" | "unpaid" | "vacant";
 export interface Apartment {
   id: string;
   floor: number;
-  unit: number; // 1 or 2
+  unit: number;
   tenantFirst?: string;
   tenantLast?: string;
   monthlyRent: number;
   status: ApartmentStatus;
+  entryDate?: string;
+  paidMonths?: number; // months paid in current cycle
 }
 
 export const APARTMENTS: Apartment[] = [
-  { id: "3A", floor: 3, unit: 1, tenantFirst: "صالح", tenantLast: "ناصر المشفق", monthlyRent: 50000, status: "paid" },
-  { id: "3B", floor: 3, unit: 2, tenantFirst: "ياسر", tenantLast: "محمد الجنوبي", monthlyRent: 55000, status: "paid" },
-  { id: "2A", floor: 2, unit: 1, tenantFirst: "عبدالخالق", tenantLast: "الوهبي", monthlyRent: 55000, status: "unpaid" },
-  { id: "2B", floor: 2, unit: 2, tenantFirst: "أحمد", tenantLast: "محمد الشيخ", monthlyRent: 55000, status: "paid" },
-  { id: "1A", floor: 1, unit: 1, tenantFirst: "قاسم", tenantLast: "علي الحميري", monthlyRent: 55000, status: "unpaid" },
+  { id: "3A", floor: 3, unit: 1, tenantFirst: "صالح", tenantLast: "ناصر المشفق", monthlyRent: 50000, status: "paid", entryDate: "2024-01-15", paidMonths: 5 },
+  { id: "3B", floor: 3, unit: 2, tenantFirst: "ياسر", tenantLast: "محمد الجنوبي", monthlyRent: 55000, status: "paid", entryDate: "2023-09-01", paidMonths: 6 },
+  { id: "2A", floor: 2, unit: 1, tenantFirst: "عبدالخالق", tenantLast: "الوهبي", monthlyRent: 55000, status: "unpaid", entryDate: "2023-03-20", paidMonths: 4 },
+  { id: "2B", floor: 2, unit: 2, tenantFirst: "أحمد", tenantLast: "محمد الشيخ", monthlyRent: 55000, status: "paid", entryDate: "2024-05-10", paidMonths: 4 },
+  { id: "1A", floor: 1, unit: 1, tenantFirst: "قاسم", tenantLast: "علي الحميري", monthlyRent: 55000, status: "unpaid", entryDate: "2024-02-01", paidMonths: 2 },
   { id: "1B", floor: 1, unit: 2, monthlyRent: 0, status: "vacant" },
 ];
 
