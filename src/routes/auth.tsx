@@ -1,16 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2, Lock, Mail, Loader2 } from "lucide-react";
+import { Building2, Lock, Mail, Loader2, User } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "تسجيل الدخول — عمارة المنصور" }] }),
+  head: () => ({ meta: [{ title: "تسجيل الدخول — عقاري" }] }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +32,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
+          options: { emailRedirectTo: `${window.location.origin}/`, data: { full_name: fullName } },
         });
         if (error) throw error;
       } else {
@@ -53,7 +54,7 @@ function AuthPage() {
           <div className="w-16 h-16 mx-auto rounded-2xl bg-white grid place-items-center shadow-card">
             <Building2 className="w-8 h-8 text-navy" />
           </div>
-          <h1 className="mt-4 text-xl font-extrabold">عمارة المنصور</h1>
+          <h1 className="mt-4 text-xl font-extrabold">عقاري</h1>
           <p className="text-xs opacity-80 mt-1">إدارة آمنة لبيانات العقار</p>
         </div>
 
@@ -74,6 +75,19 @@ function AuthPage() {
           </div>
 
           <form onSubmit={submit} className="space-y-3 pb-6">
+            {mode === "signup" && (
+              <div className="flex items-center gap-2 bg-secondary/70 rounded-2xl px-4 py-3 border border-border">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="الاسم الكامل"
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                />
+              </div>
+            )}
             <div className="flex items-center gap-2 bg-secondary/70 rounded-2xl px-4 py-3 border border-border">
               <Mail className="w-4 h-4 text-muted-foreground" />
               <input
