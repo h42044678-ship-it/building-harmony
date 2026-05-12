@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
 import { MONTHS_AR, TENANT_ROWS, EXPENSE_ROWS, PREVIOUS_BALANCE } from "@/data/building";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/operations")({
   head: () => ({
     meta: [
-      { title: "كشف حساب العمارة 2026" },
-      { name: "description", content: "كشف الحساب السنوي للمستأجرين والمصروفات" },
+      { title: "التقارير — عمارة المنصور" },
+      { name: "description", content: "تقارير الحساب السنوي للمستأجرين والمصروفات" },
     ],
   }),
   component: OperationsPage,
@@ -50,6 +53,46 @@ function OperationsPage() {
   const statementTotal = remaining.reduce((a, b) => a + b, 0);
   const grand = statementTotal + PREVIOUS_BALANCE;
 
+  const buildSheetRows = () => {
+    const header = ["البيان", ...MONTHS_AR];
+    const rows: (string | number)[][] = [header];
+    TENANT_ROWS.forEach((r) => {
+      rows.push([r.name, ...r.months.map((c) => (c === "vacated" ? "غادر" : c ?? ""))]);
+    });
+    rows.push(["الإجمالي", ...tenantTotals.map((t) => (t > 0 ? t : ""))]);
+    EXPENSE_ROWS.forEach((r) => {
+      rows.push([r.name, ...r.months.map((c) => c ?? "")]);
+    });
+    rows.push(["المتبقي", ...remaining.map((r) => (r !== 0 ? r : ""))]);
+    rows.push([]);
+    rows.push(["إجمالي الكشف", statementTotal]);
+    rows.push(["الرصيد السابق", PREVIOUS_BALANCE]);
+    rows.push(["الإجمالي الشامل", grand]);
+    return rows;
+  };
+
+  const exportExcel = () => {
+    const ws = XLSX.utils.aoa_to_sheet(buildSheetRows());
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "التقرير");
+    XLSX.writeFile(wb, `تقرير-عمارة-المنصور-2026.xlsx`);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const rows = buildSheetRows();
+    doc.setFontSize(14);
+    doc.text("Al-Mansour Building - Annual Report 2026", 40, 30);
+    autoTable(doc, {
+      head: [rows[0] as string[]],
+      body: rows.slice(1).map((r) => r.map((c) => String(c ?? ""))),
+      startY: 50,
+      styles: { fontSize: 7, halign: "center" },
+      headStyles: { fillColor: [13, 27, 62] },
+    });
+    doc.save(`report-al-mansour-2026.pdf`);
+  };
+
   return (
     <MobileShell>
       <header className="bg-gradient-navy text-navy-foreground header-curve px-5 pt-6 pb-8 shadow-elevated">
@@ -58,14 +101,31 @@ function OperationsPage() {
             <ChevronRight className="w-5 h-5" />
           </button>
           <div className="text-center">
-            <div className="text-xs opacity-75">العمليات</div>
-            <h1 className="text-lg font-extrabold">كشف حساب العمارة 2026</h1>
+            <div className="text-xs opacity-75">التقارير</div>
+            <h1 className="text-lg font-extrabold">تقرير العمارة 2026</h1>
           </div>
           <div className="w-9" />
         </div>
       </header>
 
-      <section className="mx-4 -mt-4">
+      <section className="mx-4 -mt-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={exportPDF}
+            className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-center gap-2 font-bold text-navy active:scale-95 transition"
+          >
+            <FileText className="w-5 h-5 text-crimson" />
+            تصدير PDF
+          </button>
+          <button
+            onClick={exportExcel}
+            className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-center gap-2 font-bold text-navy active:scale-95 transition"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-success" />
+            تصدير Excel
+          </button>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-elevated p-2 overflow-hidden">
           <div className="overflow-x-auto" dir="rtl">
             <table className="w-full border-collapse text-xs">

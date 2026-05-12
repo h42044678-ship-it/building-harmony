@@ -4,7 +4,7 @@ import { Home, Grid2x2, Wallet, MoreHorizontal, QrCode } from "lucide-react";
 const tabs = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/services", label: "الخدمات", icon: Grid2x2 },
-  { to: "/operations", label: "العمليات", icon: Wallet },
+  { to: "/operations", label: "التقارير", icon: Wallet },
   { to: "/more", label: "المزيد", icon: MoreHorizontal },
 ] as const;
 
