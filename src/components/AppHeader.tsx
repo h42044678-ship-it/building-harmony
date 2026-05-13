@@ -2,6 +2,7 @@ import { Bell, LogOut, Eye, EyeOff, Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "@tanstack/react-router";
+import { computeOverallBalance, useAppData } from "@/store/data";
 
 interface AppHeaderProps {
   balance?: number;
@@ -14,11 +15,13 @@ function getGreeting(d: Date) {
   return "مساء النور";
 }
 
-export function AppHeader({ balance = 377000 }: AppHeaderProps) {
+export function AppHeader({ balance }: AppHeaderProps) {
   const [visible, setVisible] = useState(true);
   const [userName, setUserName] = useState("");
   const [greeting, setGreeting] = useState("أهلاً");
   const navigate = useNavigate();
+  const data = useAppData();
+  const computedBalance = balance ?? computeOverallBalance(data);
 
   useEffect(() => {
     setGreeting(getGreeting(new Date()));
@@ -63,7 +66,7 @@ export function AppHeader({ balance = 377000 }: AppHeaderProps) {
         <div className="text-xs opacity-75">الرصيد المتاح</div>
         <div className="flex items-center justify-center gap-3 mt-1">
           <span className="text-4xl font-extrabold tracking-tight">
-            {visible ? balance.toLocaleString("en-US") : "••••••"}
+            {visible ? computedBalance.toLocaleString("en-US") : "••••••"}
             <span className="text-base font-medium opacity-80 mr-1">ر.ي</span>
           </span>
           <button onClick={() => setVisible((v) => !v)} aria-label="إظهار الرصيد" className="opacity-80 hover:opacity-100">
