@@ -1,15 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Grid2x2, Wallet, MoreHorizontal, UserMinus, AlertCircle } from "lucide-react";
+import { Home, Grid2x2, Wallet, MoreHorizontal, Zap } from "lucide-react";
 import { useState } from "react";
-import { useApartments, exitTenant } from "@/store/apartments";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { QuickEntryDialog } from "./QuickEntryDialog";
 
 const tabs = [
   { to: "/", label: "الرئيسية", icon: Home },
@@ -21,10 +13,6 @@ const tabs = [
 export function BottomNav() {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  const apartments = useApartments();
-  const occupied = apartments.filter((a) => a.status !== "vacant");
-  const target = apartments.find((a) => a.id === confirmId);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 max-w-md mx-auto">
@@ -36,75 +24,13 @@ export function BottomNav() {
         </div>
         <button
           onClick={() => setOpen(true)}
-          aria-label="إخراج مستأجر"
+          aria-label="إدخال عملية سريعة"
           className="absolute -top-7 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-crimson text-crimson-foreground grid place-items-center shadow-crimson border-4 border-white active:scale-95 transition"
         >
-          <UserMinus className="w-7 h-7" />
+          <Zap className="w-7 h-7" />
         </button>
       </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-right">إخراج مستأجر</DialogTitle>
-            <DialogDescription className="text-right">
-              اختر المستأجر الذي ترغب بإنهاء عقده وإخلاء شقته.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {occupied.length === 0 && (
-              <div className="text-sm text-muted-foreground text-center py-6">لا يوجد مستأجرون حالياً</div>
-            )}
-            {occupied.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => setConfirmId(a.id)}
-                className="w-full flex items-center justify-between bg-secondary/60 hover:bg-secondary rounded-2xl px-4 py-3 border border-border text-right transition"
-              >
-                <span className="text-[10px] font-bold text-navy/60 bg-white rounded-md px-1.5 py-0.5">شقة {a.id}</span>
-                <div>
-                  <div className="text-sm font-bold text-navy">{a.tenantFirst} {a.tenantLast}</div>
-                  <div className="text-[11px] text-muted-foreground">الطابق {a.floor}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!confirmId} onOpenChange={(o) => !o && setConfirmId(null)}>
-        <DialogContent className="max-w-xs rounded-3xl text-center">
-          <div className="mx-auto w-14 h-14 rounded-full bg-crimson/10 grid place-items-center">
-            <AlertCircle className="w-7 h-7 text-crimson" />
-          </div>
-          <DialogHeader>
-            <DialogTitle className="text-center">تأكيد إخراج المستأجر</DialogTitle>
-            <DialogDescription className="text-center">
-              {target && (
-                <>سيتم إنهاء عقد <b>{target.tenantFirst} {target.tenantLast}</b> وإخلاء شقة {target.id}.</>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-row gap-2 sm:justify-center">
-            <button
-              onClick={() => setConfirmId(null)}
-              className="flex-1 py-2.5 rounded-2xl bg-secondary text-navy font-bold text-sm"
-            >
-              إلغاء
-            </button>
-            <button
-              onClick={() => {
-                if (confirmId) exitTenant(confirmId);
-                setConfirmId(null);
-                setOpen(false);
-              }}
-              className="flex-1 py-2.5 rounded-2xl bg-gradient-crimson text-crimson-foreground font-bold text-sm shadow-crimson"
-            >
-              تأكيد الإخراج
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <QuickEntryDialog open={open} onOpenChange={setOpen} />
     </nav>
   );
 }

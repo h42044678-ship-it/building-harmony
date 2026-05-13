@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
 import { BuildingView } from "@/components/BuildingView";
-import { SearchBar } from "@/components/SearchBar";
 import { MobileShell } from "@/components/MobileShell";
 
 export const Route = createFileRoute("/")({
@@ -12,7 +11,6 @@ function Index() {
   return (
     <MobileShell>
       <AppHeader />
-      <SearchBar />
       <BuildingView />
     </MobileShell>
   );
