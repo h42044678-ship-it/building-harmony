@@ -1,13 +1,15 @@
 import { useState } from "react";
+import { useAppData, dataActions } from "@/store/data";
 import { useApartments, exitTenant } from "@/store/apartments";
-import type { Apartment } from "@/data/building";
-import { AlertCircle, CheckCircle2, Plus, DoorClosed, X, CalendarDays, Wallet, Phone } from "lucide-react";
+import type { ApartmentView } from "@/store/apartments";
+import { AlertCircle, CheckCircle2, Plus, DoorClosed, CalendarDays, Wallet, Phone, UserPlus, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 function formatDate(iso?: string) {
@@ -19,14 +21,7 @@ function formatDate(iso?: string) {
   }
 }
 
-function monthsSince(iso?: string) {
-  if (!iso) return 0;
-  const d = new Date(iso);
-  const now = new Date();
-  return Math.max(0, (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()));
-}
-
-function ApartmentCard({ a, onClick }: { a: Apartment; onClick: () => void }) {
+function ApartmentCard({ a, onClick }: { a: ApartmentView; onClick: () => void }) {
   if (a.status === "vacant") {
     return (
       <button onClick={onClick} className="apt-vacant rounded-2xl p-3 h-24 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-navy transition">
@@ -59,39 +54,72 @@ function ApartmentCard({ a, onClick }: { a: Apartment; onClick: () => void }) {
 
 export function BuildingView() {
   const apartments = useApartments();
-  const [selected, setSelected] = useState<Apartment | null>(null);
+  const data = useAppData();
+  const [selected, setSelected] = useState<ApartmentView | null>(null);
+  const [addOpen, setAddOpen] = useState<string | null>(null); // apartment id
   const floors = [3, 2, 1];
 
-  const elapsed = selected ? monthsSince(selected.entryDate) : 0;
-  const paid = selected?.paidMonths ?? 0;
-  const remainingMonths = Math.max(0, elapsed - paid);
-  const remainingAmount = remainingMonths * (selected?.monthlyRent ?? 0);
+  const recent = data.transactions.slice(0, 5);
+
+  const onCardClick = (a: ApartmentView) => {
+    if (a.status === "vacant") setAddOpen(a.id);
+    else setSelected(a);
+  };
 
   return (
-    <section className="mx-4 mt-6">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-extrabold text-navy text-lg">العمارة</h2>
-        <span className="text-xs text-muted-foreground">٣ طوابق · ٦ شقق</span>
-      </div>
-      <div className="bg-secondary/60 rounded-3xl p-3 shadow-card border border-border space-y-2">
-        {floors.map((f) => {
-          const units = apartments.filter((a) => a.floor === f);
-          return (
-            <div key={f} className="relative">
-              <div className="absolute -right-1 top-1/2 -translate-y-1/2 text-[10px] font-bold text-navy/50 rotate-90 origin-center">
-                ط{f}
+    <section className="mx-4 mt-6 space-y-6">
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-extrabold text-navy text-lg">العمارة</h2>
+          <span className="text-xs text-muted-foreground">٣ طوابق · ٦ شقق</span>
+        </div>
+        <div className="bg-secondary/60 rounded-3xl p-3 shadow-card border border-border space-y-2">
+          {floors.map((f) => {
+            const units = apartments.filter((a) => a.floor === f);
+            return (
+              <div key={f} className="relative">
+                <div className="absolute -right-1 top-1/2 -translate-y-1/2 text-[10px] font-bold text-navy/50 rotate-90 origin-center">
+                  ط{f}
+                </div>
+                <div className="grid grid-cols-2 gap-2 px-4">
+                  {units.map((a) => (
+                    <ApartmentCard key={a.id} a={a} onClick={() => onCardClick(a)} />
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 px-4">
-                {units.map((a) => (
-                  <ApartmentCard key={a.id} a={a} onClick={() => setSelected(a)} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        <div className="h-3 bg-gradient-navy rounded-b-2xl rounded-t-md mt-2 opacity-90" />
+            );
+          })}
+          <div className="h-3 bg-gradient-navy rounded-b-2xl rounded-t-md mt-2 opacity-90" />
+        </div>
       </div>
 
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-extrabold text-navy text-lg">العمليات الأخيرة</h2>
+          <span className="text-xs text-muted-foreground">{recent.length} عملية</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-border shadow-card divide-y divide-border">
+          {recent.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-8">لا توجد عمليات بعد</div>
+          )}
+          {recent.map((t) => (
+            <div key={t.id} className="flex items-center justify-between px-4 py-3">
+              <div className="text-right">
+                <div className="text-sm font-bold text-navy">{t.categoryLabel}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {t.tenantName ? `${t.tenantName} · ` : ""}{new Date(t.date).toLocaleDateString("ar-EG")}
+                </div>
+              </div>
+              <div className={`text-sm font-extrabold tabular-nums ${t.type === "income" ? "text-success" : "text-crimson"}`}>
+                {t.type === "income" ? "+" : "−"} {t.amount.toLocaleString("en-US")}
+                <span className="text-[10px] font-medium opacity-70 mr-1">ر.ي</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tenant details dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden border-0">
           {selected && selected.status !== "vacant" && (
@@ -108,25 +136,33 @@ export function BuildingView() {
                   <DialogTitle>بيانات المستأجر</DialogTitle>
                   <DialogDescription>تفاصيل مستأجر الشقة</DialogDescription>
                 </DialogHeader>
-
                 <Row icon={<CalendarDays className="w-4 h-4" />} label="تاريخ الدخول" value={formatDate(selected.entryDate)} />
                 <Row icon={<Wallet className="w-4 h-4" />} label="الإيجار الشهري" value={`${selected.monthlyRent.toLocaleString("en-US")} ر.ي`} />
-                <Row icon={<CheckCircle2 className="w-4 h-4 text-success" />} label="الأشهر المسددة" value={`${paid} شهر`} />
+                <Row icon={<CheckCircle2 className="w-4 h-4 text-success" />} label="الأشهر المسددة" value={`${selected.paidMonths ?? 0} شهر`} />
                 <div className="bg-secondary/60 rounded-2xl p-3 border border-border">
                   <div className="text-xs text-muted-foreground">المتبقي على المستأجر</div>
                   <div className="mt-1 flex items-baseline justify-between">
-                    <div className="text-2xl font-extrabold text-crimson">
-                      {remainingAmount.toLocaleString("en-US")} <span className="text-sm font-semibold">ر.ي</span>
+                    <div className={`text-2xl font-extrabold ${selected.remainingAmount > 0 ? "text-crimson" : "text-success"}`}>
+                      {selected.remainingAmount.toLocaleString("en-US")} <span className="text-sm font-semibold">ر.ي</span>
                     </div>
-                    <div className="text-xs text-navy/70">{remainingMonths} شهر</div>
                   </div>
                 </div>
-                <Row icon={<Phone className="w-4 h-4" />} label="رقم الهاتف" value="—" />
+                <Row icon={<Phone className="w-4 h-4" />} label="رقم الهاتف" value={selected.phone || "—"} />
+                <DialogFooter className="flex-row gap-2 pt-2">
+                  <button
+                    onClick={() => { if (selected.tenantId) { exitTenant(selected.tenantId); setSelected(null); } }}
+                    className="flex-1 py-2.5 rounded-2xl bg-crimson/10 text-crimson font-bold text-sm"
+                  >
+                    إخراج المستأجر
+                  </button>
+                </DialogFooter>
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      <AddTenantDialog apartmentId={addOpen} onClose={() => setAddOpen(null)} />
     </section>
   );
 }
@@ -139,6 +175,68 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
         <span>{label}</span>
       </div>
       <div className="text-sm font-bold text-navy">{value}</div>
+    </div>
+  );
+}
+
+function AddTenantDialog({ apartmentId, onClose }: { apartmentId: string | null; onClose: () => void }) {
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [rent, setRent] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [err, setErr] = useState<string | null>(null);
+
+  const reset = () => { setFullName(""); setPhone(""); setRent(""); setDate(new Date().toISOString().slice(0, 10)); setErr(null); };
+
+  const save = () => {
+    setErr(null);
+    if (!fullName.trim()) return setErr("الاسم مطلوب");
+    const r = Number(rent);
+    if (!r || r <= 0) return setErr("قيمة الإيجار غير صحيحة");
+    if (!apartmentId) return;
+    dataActions.addTenant({ fullName, phone, monthlyRent: r, entryDate: new Date(date).toISOString(), apartmentId });
+    reset();
+    onClose();
+  };
+
+  return (
+    <Dialog open={!!apartmentId} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
+      <DialogContent className="max-w-sm rounded-3xl">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2"><UserPlus className="w-5 h-5 text-crimson" /> إضافة مستأجر — شقة {apartmentId}</DialogTitle>
+          <DialogDescription className="text-right">أدخل بيانات المستأجر الجديد.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Field label="الاسم الكامل">
+            <input dir="rtl" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" placeholder="مثال: أحمد محمد الشيخ" />
+          </Field>
+          <Field label="رقم الهاتف">
+            <input dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" placeholder="7xx xxx xxx" />
+          </Field>
+          <Field label="الإيجار الشهري (ر.ي)">
+            <input dir="ltr" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value.replace(/\D/g, ""))} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" placeholder="55000" />
+          </Field>
+          <Field label="تاريخ الدخول">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" />
+          </Field>
+          {err && <div className="text-xs text-crimson text-center">{err}</div>}
+        </div>
+        <DialogFooter className="flex-row gap-2">
+          <button onClick={() => { reset(); onClose(); }} className="flex-1 py-2.5 rounded-2xl bg-secondary text-navy font-bold text-sm">
+            <X className="w-4 h-4 inline ml-1" /> إلغاء
+          </button>
+          <button onClick={save} className="flex-1 py-2.5 rounded-2xl bg-gradient-crimson text-crimson-foreground font-bold text-sm shadow-crimson">حفظ</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-navy mb-1.5 text-right">{label}</label>
+      {children}
     </div>
   );
 }

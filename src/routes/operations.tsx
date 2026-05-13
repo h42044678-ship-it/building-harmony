@@ -1,31 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
-import { MONTHS_AR, TENANT_ROWS, EXPENSE_ROWS, PREVIOUS_BALANCE } from "@/data/building";
-import { ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
+import { MONTHS_AR } from "@/data/building";
+import { useAppData, computeYearTotals, tenantMonthlyGrid, serviceMonthlyGrid } from "@/store/data";
+import { ChevronRight, FileSpreadsheet, FileText, Archive } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useState } from "react";
 
 export const Route = createFileRoute("/operations")({
   head: () => ({
     meta: [
-      { title: "التقارير — عمارة المنصور" },
+      { title: "التقارير — عقاري" },
       { name: "description", content: "تقارير الحساب السنوي للمستأجرين والمصروفات" },
     ],
   }),
-  component: OperationsPage,
+  component: ReportsPage,
 });
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-function Cell({ v }: { v: number | "vacated" | null }) {
-  if (v === null) return <td className="border border-border bg-white h-10 min-w-[78px]" />;
-  if (v === "vacated")
+function Cell({ v, vacated }: { v: number | null; vacated?: boolean }) {
+  if (vacated)
     return (
       <td className="border border-border bg-crimson text-crimson-foreground font-bold text-center text-xs min-w-[78px]">
         غادر
       </td>
     );
+  if (v === null || v === 0) return <td className="border border-border bg-white h-10 min-w-[78px]" />;
   return (
     <td className="border border-border bg-success-soft text-navy font-semibold text-center text-xs min-w-[78px] tabular-nums">
       {fmt(v)}
@@ -36,37 +38,62 @@ function Cell({ v }: { v: number | "vacated" | null }) {
 function ExpenseCell({ v }: { v: number | null }) {
   return (
     <td className="border border-border h-10 text-center text-xs tabular-nums min-w-[78px]">
-      {v !== null ? fmt(v) : ""}
+      {v !== null && v !== 0 ? fmt(v) : ""}
     </td>
   );
 }
 
-function OperationsPage() {
+function ReportsPage() {
+  const data = useAppData();
+  const [selectedYear, setSelectedYear] = useState(data.currentYear);
+
+  const tenantsForYear = data.tenants.filter((t) => {
+    // include if entry date in this year or earlier
+    return new Date(t.entryDate).getFullYear() <= selectedYear;
+  });
+
+  const expenseServices = data.services.filter((s) => s.kind === "expense");
+
+  const tenantGrids = tenantsForYear.map((t) => ({
+    tenant: t,
+    months: tenantMonthlyGrid(t.id, selectedYear, data),
+  }));
+
+  const expenseGrids = expenseServices.map((s) => ({
+    service: s,
+    months: serviceMonthlyGrid(s.id, selectedYear, data),
+  }));
+
   const tenantTotals = MONTHS_AR.map((_, i) =>
-    TENANT_ROWS.reduce((s, r) => s + (typeof r.months[i] === "number" ? (r.months[i] as number) : 0), 0)
+    tenantGrids.reduce((sum, row) => {
+      const v = row.months[i];
+      return sum + (typeof v === "number" ? v : 0);
+    }, 0)
   );
   const expenseTotals = MONTHS_AR.map((_, i) =>
-    EXPENSE_ROWS.reduce((s, r) => s + (r.months[i] ?? 0), 0)
+    expenseGrids.reduce((sum, row) => sum + (row.months[i] ?? 0), 0)
   );
   const remaining = tenantTotals.map((t, i) => t - expenseTotals[i]);
 
   const statementTotal = remaining.reduce((a, b) => a + b, 0);
-  const grand = statementTotal + PREVIOUS_BALANCE;
+  const previousBalance = data.previousBalance;
+  const grand = statementTotal + previousBalance;
 
   const buildSheetRows = () => {
     const header = ["البيان", ...MONTHS_AR];
     const rows: (string | number)[][] = [header];
-    TENANT_ROWS.forEach((r) => {
-      rows.push([r.name, ...r.months.map((c) => (c === "vacated" ? "غادر" : c ?? ""))]);
+    tenantGrids.forEach(({ tenant, months }) => {
+      const name = tenant.active ? tenant.fullName : `${tenant.fullName} (غادر)`;
+      rows.push([name, ...months.map((c) => (c === "vacated" ? "غادر" : c ?? ""))]);
     });
     rows.push(["الإجمالي", ...tenantTotals.map((t) => (t > 0 ? t : ""))]);
-    EXPENSE_ROWS.forEach((r) => {
-      rows.push([r.name, ...r.months.map((c) => c ?? "")]);
+    expenseGrids.forEach(({ service, months }) => {
+      rows.push([service.label, ...months.map((c) => c ?? "")]);
     });
     rows.push(["المتبقي", ...remaining.map((r) => (r !== 0 ? r : ""))]);
     rows.push([]);
     rows.push(["إجمالي الكشف", statementTotal]);
-    rows.push(["الرصيد السابق", PREVIOUS_BALANCE]);
+    rows.push(["الرصيد السابق", previousBalance]);
     rows.push(["الإجمالي الشامل", grand]);
     return rows;
   };
@@ -74,15 +101,15 @@ function OperationsPage() {
   const exportExcel = () => {
     const ws = XLSX.utils.aoa_to_sheet(buildSheetRows());
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "التقرير");
-    XLSX.writeFile(wb, `تقرير-عمارة-المنصور-2026.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, `تقرير ${selectedYear}`);
+    XLSX.writeFile(wb, `aqari-report-${selectedYear}.xlsx`);
   };
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const rows = buildSheetRows();
     doc.setFontSize(14);
-    doc.text("Al-Mansour Building - Annual Report 2026", 40, 30);
+    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 30);
     autoTable(doc, {
       head: [rows[0] as string[]],
       body: rows.slice(1).map((r) => r.map((c) => String(c ?? ""))),
@@ -90,8 +117,14 @@ function OperationsPage() {
       styles: { fontSize: 7, halign: "center" },
       headStyles: { fillColor: [13, 27, 62] },
     });
-    doc.save(`report-al-mansour-2026.pdf`);
+    doc.save(`aqari-report-${selectedYear}.pdf`);
   };
+
+  const totals = computeYearTotals(selectedYear, data);
+  void totals;
+
+  const archiveYears = data.archives.map((a) => a.year);
+  const yearOptions = Array.from(new Set([data.currentYear, ...archiveYears])).sort((a, b) => b - a);
 
   return (
     <MobileShell>
@@ -102,13 +135,28 @@ function OperationsPage() {
           </button>
           <div className="text-center">
             <div className="text-xs opacity-75">التقارير</div>
-            <h1 className="text-lg font-extrabold">تقرير العمارة 2026</h1>
+            <h1 className="text-lg font-extrabold">تقرير عام {selectedYear}</h1>
           </div>
           <div className="w-9" />
         </div>
       </header>
 
       <section className="mx-4 -mt-4 space-y-3">
+        {yearOptions.length > 1 && (
+          <div className="bg-white rounded-2xl shadow-card border border-border p-2 flex items-center gap-2 overflow-x-auto">
+            <Archive className="w-4 h-4 text-navy/60 shrink-0" />
+            {yearOptions.map((y) => (
+              <button
+                key={y}
+                onClick={() => setSelectedYear(y)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${selectedYear === y ? "bg-navy text-navy-foreground" : "bg-secondary text-navy"}`}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={exportPDF}
@@ -142,44 +190,51 @@ function OperationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {TENANT_ROWS.map((row) => (
-                  <tr key={row.name}>
-                    <td className="sticky right-0 bg-secondary z-10 border border-border px-3 py-2 text-right font-semibold text-navy">
-                      {row.name}
+                {tenantGrids.length === 0 && (
+                  <tr><td colSpan={13} className="text-center text-muted-foreground py-6">لا يوجد مستأجرون لهذا العام</td></tr>
+                )}
+                {tenantGrids.map(({ tenant, months }) => (
+                  <tr key={tenant.id} className={!tenant.active ? "bg-crimson/5" : ""}>
+                    <td className={`sticky right-0 z-10 border border-border px-3 py-2 text-right font-semibold ${!tenant.active ? "bg-crimson/15 text-crimson" : "bg-secondary text-navy"}`}>
+                      {tenant.fullName}{!tenant.active && " · غادر"}
                     </td>
-                    {row.months.map((c, i) => <Cell key={i} v={c} />)}
+                    {months.map((c, i) => (
+                      <Cell key={i} v={typeof c === "number" ? c : null} vacated={c === "vacated"} />
+                    ))}
                   </tr>
                 ))}
-                <tr>
-                  <td className="sticky right-0 bg-navy/90 text-navy-foreground z-10 border border-navy-deep px-3 py-2 text-right font-bold">
-                    الإجمالي
-                  </td>
-                  {tenantTotals.map((t, i) => (
-                    <td key={i} className="border border-border bg-navy/10 text-navy font-bold text-center text-xs tabular-nums min-w-[78px]">
-                      {t > 0 ? fmt(t) : "-"}
+                {tenantGrids.length > 0 && (
+                  <tr>
+                    <td className="sticky right-0 bg-navy/90 text-navy-foreground z-10 border border-navy-deep px-3 py-2 text-right font-bold">
+                      الإجمالي
                     </td>
-                  ))}
-                </tr>
-
-                {EXPENSE_ROWS.map((row) => (
-                  <tr key={row.name}>
+                    {tenantTotals.map((t, i) => (
+                      <td key={i} className="border border-border bg-navy/10 text-navy font-bold text-center text-xs tabular-nums min-w-[78px]">
+                        {t > 0 ? fmt(t) : "-"}
+                      </td>
+                    ))}
+                  </tr>
+                )}
+                {expenseGrids.map(({ service, months }) => (
+                  <tr key={service.id}>
                     <td className="sticky right-0 bg-secondary/70 z-10 border border-border px-3 py-2 text-right text-navy">
-                      {row.name}
+                      {service.label}
                     </td>
-                    {row.months.map((c, i) => <ExpenseCell key={i} v={c} />)}
+                    {months.map((c, i) => <ExpenseCell key={i} v={c} />)}
                   </tr>
                 ))}
-
-                <tr>
-                  <td className="sticky right-0 bg-success/90 text-success-foreground z-10 border border-success px-3 py-2 text-right font-bold">
-                    المتبقي
-                  </td>
-                  {remaining.map((r, i) => (
-                    <td key={i} className="border border-border bg-success-soft text-navy font-bold text-center text-xs tabular-nums min-w-[78px]">
-                      {r !== 0 ? fmt(r) : "-"}
+                {tenantGrids.length > 0 && (
+                  <tr>
+                    <td className="sticky right-0 bg-success/90 text-success-foreground z-10 border border-success px-3 py-2 text-right font-bold">
+                      المتبقي
                     </td>
-                  ))}
-                </tr>
+                    {remaining.map((r, i) => (
+                      <td key={i} className="border border-border bg-success-soft text-navy font-bold text-center text-xs tabular-nums min-w-[78px]">
+                        {r !== 0 ? fmt(r) : "-"}
+                      </td>
+                    ))}
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -187,11 +242,54 @@ function OperationsPage() {
 
         <div className="mt-4 space-y-2">
           <SummaryRow label="إجمالي الكشف" value={statementTotal} />
-          <SummaryRow label="رصيد سابق" value={PREVIOUS_BALANCE} />
+          <SummaryRow label="رصيد سابق" value={previousBalance} />
           <SummaryRow label="الإجمالي الشامل" value={grand} highlight />
         </div>
+
+        {/* Per-tenant statements */}
+        {tenantGrids.length > 0 && (
+          <div className="mt-4">
+            <h3 className="font-extrabold text-navy text-sm mb-2">كشف حساب فردي</h3>
+            <div className="space-y-2">
+              {tenantGrids.map(({ tenant, months }) => (
+                <TenantStatementButton key={tenant.id} tenantName={tenant.fullName} year={selectedYear} months={months} monthlyRent={tenant.monthlyRent} />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </MobileShell>
+  );
+}
+
+function TenantStatementButton({ tenantName, year, months, monthlyRent }: { tenantName: string; year: number; months: (number | "vacated" | null)[]; monthlyRent: number }) {
+  const exportTenantPDF = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    doc.setFontSize(14);
+    doc.text(`Tenant Statement ${year}`, 40, 30);
+    doc.text(tenantName, 40, 50);
+    autoTable(doc, {
+      head: [["Month", "Amount"]],
+      body: MONTHS_AR.map((m, i) => [m, months[i] === "vacated" ? "غادر" : months[i] ? fmt(Number(months[i])) : "-"]),
+      startY: 70,
+      styles: { fontSize: 9, halign: "center" },
+      headStyles: { fillColor: [13, 27, 62] },
+    });
+    doc.save(`tenant-${tenantName}-${year}.pdf`);
+  };
+  const total = months.reduce((s: number, v) => s + (typeof v === "number" ? v : 0), 0);
+  const due = monthlyRent * 12;
+  const remaining = Math.max(0, due - total);
+  return (
+    <div className="bg-white rounded-2xl border border-border p-3 flex items-center justify-between">
+      <div className="text-right">
+        <div className="text-sm font-bold text-navy">{tenantName}</div>
+        <div className="text-[11px] text-muted-foreground">مدفوع: {fmt(total)} · متبقي: {fmt(remaining)} ر.ي</div>
+      </div>
+      <button onClick={exportTenantPDF} className="px-3 py-2 bg-secondary rounded-xl text-xs font-bold text-navy">
+        <FileText className="w-4 h-4 inline ml-1" /> كشف PDF
+      </button>
+    </div>
   );
 }
 
