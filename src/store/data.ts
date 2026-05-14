@@ -217,7 +217,7 @@ export const dataActions = {
   },
 
   removeService(id: string) {
-    state = { ...state, services: state.services.filter((s) => s.id !== id || s.builtin) };
+    state = { ...state, services: state.services.filter((s) => !(s.id === id && !s.builtin)) };
     emit();
   },
 
@@ -271,7 +271,7 @@ export const dataActions = {
   },
 
   // Withdraw credit to tenant (expense without showing as service)
-  withdrawToTenant(input: { tenantId: string; amount: number; note?: string }) {
+  withdrawToTenant(input: { tenantId: string; amount: number; note?: string; date?: string }) {
     const tenant = state.tenants.find((t) => t.id === input.tenantId);
     return this.addTransaction({
       type: "expense",
@@ -279,6 +279,7 @@ export const dataActions = {
       categoryLabel: "سحب رصيد",
       amount: input.amount,
       tenantId: input.tenantId,
+      date: input.date,
       note: input.note ?? (tenant ? `سحب لـ ${tenant.fullName}` : undefined),
     });
   },
