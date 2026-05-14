@@ -217,7 +217,7 @@ export const dataActions = {
   },
 
   removeService(id: string) {
-    state = { ...state, services: state.services.filter((s) => s.id !== id || s.builtin) };
+    state = { ...state, services: state.services.filter((s) => !(s.id === id && !s.builtin)) };
     emit();
   },
 
