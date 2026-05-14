@@ -123,7 +123,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  useEffect(() => { registerPWA(); }, []);
+  useEffect(() => { registerPWA(); initCloudSync(); }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
