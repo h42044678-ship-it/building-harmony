@@ -283,16 +283,6 @@ export const dataActions = {
       note: input.note ?? (tenant ? `سحب لـ ${tenant.fullName}` : undefined),
     });
   },
-    const tenant = state.tenants.find((t) => t.id === input.tenantId);
-    return this.addTransaction({
-      type: "expense",
-      category: "credit-withdraw",
-      categoryLabel: "سحب رصيد",
-      amount: input.amount,
-      tenantId: input.tenantId,
-      note: input.note ?? (tenant ? `سحب لـ ${tenant.fullName}` : undefined),
-    });
-  },
 
   startNewYear() {
     const totals = computeYearTotals(state.currentYear, state);
