@@ -129,6 +129,9 @@ function persist() {
 function emit() {
   persist();
   listeners.forEach((l) => l());
+  if (typeof window !== "undefined") {
+    try { window.dispatchEvent(new CustomEvent("aqari-data-changed")); } catch {}
+  }
 }
 
 const subscribe = (cb: () => void) => {
