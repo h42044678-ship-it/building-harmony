@@ -57,7 +57,7 @@ function MenuPanel({ setPanel, logout }: { setPanel: (p: Panel) => void; logout:
       <Item icon={Settings} label="المظهر" onClick={() => setPanel("appearance")} />
       <Item icon={Bell} label="إعدادات الإشعارات" onClick={() => setPanel("notifications")} />
       <Item icon={Lock} label="تعديل كلمة مرور التطبيق" onClick={() => setPanel("password")} />
-      <Item icon={Shield} label="الأمان والبصمة" onClick={() => setPanel("security")} />
+      
       <Item icon={Download} label="النسخ الاحتياطي والترحيل" onClick={() => setPanel("backup")} />
       <Item icon={LogOut} label="تسجيل الخروج" onClick={logout} />
     </div>

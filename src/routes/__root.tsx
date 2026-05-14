@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { registerPWA } from "@/lib/pwa";
+import { initCloudSync } from "@/lib/cloud-sync";
 
 import appCss from "../styles.css?url";
 
@@ -122,7 +123,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  useEffect(() => { registerPWA(); }, []);
+  useEffect(() => { registerPWA(); initCloudSync(); }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
