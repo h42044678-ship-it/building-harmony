@@ -64,7 +64,8 @@ function ServicesPage() {
         <div className="grid grid-cols-3 gap-3">
           {data.services.map((s) => {
             const Icon = ICON_MAP[s.iconKey] ?? Receipt;
-            const canDelete = editMode && !s.builtin;
+            // All services deletable in edit mode except "rent"; credit-add isn't in this list.
+            const canDelete = editMode && s.id !== "rent";
             return (
               <div key={s.id} className="relative">
                 <button
@@ -117,7 +118,8 @@ function ServicesPage() {
         </div>
         {editMode && (
           <p className="text-[11px] text-muted-foreground text-center mt-4">
-            اضغط ✕ لحذف الخدمات المضافة. الخدمات الأساسية لا يمكن حذفها.
+            اضغط ✕ لحذف أي خدمة. حذف الخدمة لا يحذف العمليات السابقة من التقرير.
+            <br />الخدمتان «دفع الإيجار» و«إضافة رصيد» محميّتان.
           </p>
         )}
       </section>
