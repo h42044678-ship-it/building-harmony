@@ -137,7 +137,8 @@ function ReportsPage() {
       headStyles: { fillColor: [13, 27, 62], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       didParseCell: (d) => {
-        const txt = String(d.row.raw[0] ?? "");
+        const raw = d.row.raw as unknown;
+        const txt = Array.isArray(raw) ? String(raw[0] ?? "") : "";
         if (txt === "الإجمالي" || txt === "المتبقي") {
           d.cell.styles.fillColor = [16, 185, 129];
           d.cell.styles.textColor = 255;
