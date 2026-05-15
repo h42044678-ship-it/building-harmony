@@ -124,14 +124,31 @@ function ReportsPage() {
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const rows = buildSheetRows();
+    doc.setFillColor(13, 27, 62);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 40, "F");
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
-    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 30);
+    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
     autoTable(doc, {
       head: [rows[0] as string[]],
       body: rows.slice(1).map((r) => r.map((c) => String(c ?? ""))),
-      startY: 50,
-      styles: { fontSize: 7, halign: "center" },
-      headStyles: { fillColor: [13, 27, 62] },
+      startY: 60,
+      styles: { fontSize: 7, halign: "center", cellPadding: 4 },
+      headStyles: { fillColor: [13, 27, 62], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      didParseCell: (d) => {
+        const txt = String(d.row.raw[0] ?? "");
+        if (txt === "الإجمالي" || txt === "المتبقي") {
+          d.cell.styles.fillColor = [16, 185, 129];
+          d.cell.styles.textColor = 255;
+          d.cell.styles.fontStyle = "bold";
+        }
+        if (txt === "الإجمالي الشامل") {
+          d.cell.styles.fillColor = [220, 38, 38];
+          d.cell.styles.textColor = 255;
+          d.cell.styles.fontStyle = "bold";
+        }
+      },
     });
     doc.save(`aqari-report-${selectedYear}.pdf`);
   };
