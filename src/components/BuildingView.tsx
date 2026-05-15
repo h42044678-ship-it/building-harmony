@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppData, dataActions } from "@/store/data";
-import { useApartments, exitTenant } from "@/store/apartments";
+import { useApartments } from "@/store/apartments";
 import type { ApartmentView } from "@/store/apartments";
 import { AlertCircle, CheckCircle2, Plus, DoorClosed, CalendarDays, Wallet, Phone, UserPlus, X } from "lucide-react";
 import {
@@ -150,10 +150,10 @@ export function BuildingView() {
                 <Row icon={<Phone className="w-4 h-4" />} label="رقم الهاتف" value={selected.phone || "—"} />
                 <DialogFooter className="flex-row gap-2 pt-2">
                   <button
-                    onClick={() => { if (selected.tenantId) { exitTenant(selected.tenantId); setSelected(null); } }}
-                    className="flex-1 py-2.5 rounded-2xl bg-crimson/10 text-crimson font-bold text-sm"
+                    onClick={() => setSelected(null)}
+                    className="flex-1 py-2.5 rounded-2xl bg-secondary text-navy font-bold text-sm"
                   >
-                    إخراج المستأجر
+                    إغلاق
                   </button>
                 </DialogFooter>
               </div>
