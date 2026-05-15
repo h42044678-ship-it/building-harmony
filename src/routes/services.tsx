@@ -185,24 +185,34 @@ function NewServiceDialog({ open, onClose }: { open: boolean; onClose: () => voi
 }
 
 function AddCreditDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const now = new Date();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const reset = () => { setAmount(""); setNote(""); };
+  const [year, setYear] = useState(now.getFullYear());
+  const reset = () => { setAmount(""); setNote(""); setYear(now.getFullYear()); };
   const save = () => {
     const a = Number(amount);
     if (!a || a <= 0) return;
-    dataActions.addCredit(a, note || undefined);
+    dataActions.addCredit(a, note || undefined, year);
     reset(); onClose();
   };
+  const years: number[] = [];
+  for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) years.push(y);
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
           <DialogTitle className="text-right">إضافة رصيد</DialogTitle>
-          <DialogDescription className="text-right">يُرحَّل المبلغ مباشرة إلى الرصيد العام.</DialogDescription>
+          <DialogDescription className="text-right">يُضاف المبلغ إلى «الرصيد السابق» للسنة المحددة في التقرير.</DialogDescription>
         </DialogHeader>
         <input dir="ltr" inputMode="numeric" placeholder="المبلغ" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} className="w-full bg-secondary rounded-xl px-4 py-3 outline-none" />
         <input dir="rtl" placeholder="ملاحظة (اختياري)" value={note} onChange={(e) => setNote(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 outline-none" />
+        <div>
+          <label className="block text-[11px] font-semibold text-navy mb-1 text-right">السنة</label>
+          <select dir="rtl" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-full bg-secondary rounded-xl px-3 py-2.5 text-sm outline-none">
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
         <DialogFooter><button onClick={save} className="w-full bg-success text-success-foreground rounded-2xl py-3 font-bold">إضافة</button></DialogFooter>
       </DialogContent>
     </Dialog>
