@@ -48,20 +48,32 @@ function ReportsPage() {
   const [selectedYear, setSelectedYear] = useState(data.currentYear);
 
   const tenantsForYear = data.tenants.filter((t) => {
-    // include if entry date in this year or earlier
     return new Date(t.entryDate).getFullYear() <= selectedYear;
   });
 
-  const expenseServices = data.services.filter((s) => s.kind === "expense");
+  // Decoupled: derive expense rows from transaction history (not from active services).
+  // This way, deleting a service does NOT erase its historical rows from the report.
+  // Re-linking by category id (and by label fallback) means re-adding a service
+  // with the same name attaches to the same row.
+  const yearTxs = data.transactions.filter((t) => t.year === selectedYear);
+  const expenseCategories = new Map<string, { id: string; label: string }>();
+  for (const t of yearTxs) {
+    if (t.type !== "expense") continue;
+    if (t.category === "credit-add") continue; // never appears as expense, just guard
+    if (!expenseCategories.has(t.category)) {
+      const liveLabel = data.services.find((s) => s.id === t.category)?.label;
+      expenseCategories.set(t.category, { id: t.category, label: liveLabel ?? t.categoryLabel });
+    }
+  }
 
   const tenantGrids = tenantsForYear.map((t) => ({
     tenant: t,
     months: tenantMonthlyGrid(t.id, selectedYear, data),
   }));
 
-  const expenseGrids = expenseServices.map((s) => ({
-    service: s,
-    months: serviceMonthlyGrid(s.id, selectedYear, data),
+  const expenseGrids = Array.from(expenseCategories.values()).map((c) => ({
+    service: c,
+    months: serviceMonthlyGrid(c.id, selectedYear, data),
   }));
 
   const tenantTotals = MONTHS_AR.map((_, i) =>
@@ -76,7 +88,11 @@ function ReportsPage() {
   const remaining = tenantTotals.map((t, i) => t - expenseTotals[i]);
 
   const statementTotal = remaining.reduce((a, b) => a + b, 0);
-  const previousBalance = data.previousBalance;
+  // Add-credit transactions for this year are counted into "previous balance" line.
+  const yearCredits = yearTxs
+    .filter((t) => t.category === "credit-add")
+    .reduce((s, t) => s + t.amount, 0);
+  const previousBalance = data.previousBalance + yearCredits;
   const grand = statementTotal + previousBalance;
 
   const buildSheetRows = () => {
@@ -108,14 +124,32 @@ function ReportsPage() {
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const rows = buildSheetRows();
+    doc.setFillColor(13, 27, 62);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 40, "F");
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
-    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 30);
+    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
     autoTable(doc, {
       head: [rows[0] as string[]],
       body: rows.slice(1).map((r) => r.map((c) => String(c ?? ""))),
-      startY: 50,
-      styles: { fontSize: 7, halign: "center" },
-      headStyles: { fillColor: [13, 27, 62] },
+      startY: 60,
+      styles: { fontSize: 7, halign: "center", cellPadding: 4 },
+      headStyles: { fillColor: [13, 27, 62], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      didParseCell: (d) => {
+        const raw = d.row.raw as unknown;
+        const txt = Array.isArray(raw) ? String(raw[0] ?? "") : "";
+        if (txt === "الإجمالي" || txt === "المتبقي") {
+          d.cell.styles.fillColor = [16, 185, 129];
+          d.cell.styles.textColor = 255;
+          d.cell.styles.fontStyle = "bold";
+        }
+        if (txt === "الإجمالي الشامل") {
+          d.cell.styles.fillColor = [220, 38, 38];
+          d.cell.styles.textColor = 255;
+          d.cell.styles.fontStyle = "bold";
+        }
+      },
     });
     doc.save(`aqari-report-${selectedYear}.pdf`);
   };

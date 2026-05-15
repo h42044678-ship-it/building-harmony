@@ -210,14 +210,21 @@ export const dataActions = {
   },
 
   addService(s: { label: string; iconKey: string; kind: TxType }) {
-    const svc: ServiceDef = { id: uid(), label: s.label.trim(), iconKey: s.iconKey, kind: s.kind };
+    const label = s.label.trim();
+    // Re-linking: if previous transactions used this label, reuse the same category id
+    const existingTx = state.transactions.find((t) => t.categoryLabel === label);
+    const id = existingTx ? existingTx.category : uid();
+    if (state.services.some((x) => x.id === id || x.label === label)) return;
+    const svc: ServiceDef = { id, label, iconKey: s.iconKey, kind: s.kind };
     state = { ...state, services: [...state.services, svc] };
     emit();
     return svc;
   },
 
   removeService(id: string) {
-    state = { ...state, services: state.services.filter((s) => !(s.id === id && !s.builtin)) };
+    // Protect only the rent service. Credit-add isn't a service entry.
+    if (id === "rent") return;
+    state = { ...state, services: state.services.filter((s) => s.id !== id) };
     emit();
   },
 
@@ -259,14 +266,17 @@ export const dataActions = {
     emit();
   },
 
-  // Add credit (income, no tenant) — goes into overall balance
-  addCredit(amount: number, note?: string) {
+  // Add credit (income, no tenant) — feeds the "previous balance" line for the chosen year
+  addCredit(amount: number, note?: string, year?: number) {
+    const y = year ?? new Date().getFullYear();
+    const date = new Date(y, 0, 1).toISOString();
     return this.addTransaction({
       type: "income",
       category: "credit-add",
       categoryLabel: "إضافة رصيد",
       amount,
       note,
+      date,
     });
   },
 

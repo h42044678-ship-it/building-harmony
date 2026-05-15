@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "@tanstack/react-router";
 import { computeOverallBalance, useAppData } from "@/store/data";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface AppHeaderProps {
   balance?: number;
@@ -15,13 +16,23 @@ function getGreeting(d: Date) {
   return "مساء النور";
 }
 
+const SEEN_KEY = "aqari-notif-seen";
+
 export function AppHeader({ balance }: AppHeaderProps) {
   const [visible, setVisible] = useState(true);
   const [userName, setUserName] = useState("");
   const [greeting, setGreeting] = useState("أهلاً");
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [seenAt, setSeenAt] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    return Number(localStorage.getItem(SEEN_KEY) ?? 0);
+  });
   const navigate = useNavigate();
   const data = useAppData();
   const computedBalance = balance ?? computeOverallBalance(data);
+
+  const recent = data.transactions.slice(0, 12);
+  const unseen = recent.filter((t) => new Date(t.date).getTime() > seenAt).length;
 
   useEffect(() => {
     setGreeting(getGreeting(new Date()));
@@ -37,6 +48,13 @@ export function AppHeader({ balance }: AppHeaderProps) {
     navigate({ to: "/auth" });
   };
 
+  const openNotif = () => {
+    setNotifOpen(true);
+    const now = Date.now();
+    setSeenAt(now);
+    try { localStorage.setItem(SEEN_KEY, String(now)); } catch {}
+  };
+
   return (
     <header className="bg-gradient-navy text-navy-foreground header-curve px-5 pt-6 pb-20 relative shadow-elevated">
       <div className="flex items-center justify-between">
@@ -44,9 +62,9 @@ export function AppHeader({ balance }: AppHeaderProps) {
           <button onClick={handleLogout} aria-label="خروج" className="p-2 rounded-xl hover:bg-white/10 transition">
             <LogOut className="w-5 h-5" />
           </button>
-          <button aria-label="إشعارات" className="p-2 rounded-xl hover:bg-white/10 transition relative">
+          <button onClick={openNotif} aria-label="إشعارات" className="p-2 rounded-xl hover:bg-white/10 transition relative">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 left-1.5 w-2 h-2 bg-crimson rounded-full" />
+            {unseen > 0 && <span className="absolute top-1 left-1 min-w-4 h-4 px-1 text-[10px] font-bold bg-crimson rounded-full grid place-items-center">{unseen}</span>}
           </button>
         </div>
         <div className="flex items-center gap-3">
@@ -74,6 +92,31 @@ export function AppHeader({ balance }: AppHeaderProps) {
           </button>
         </div>
       </div>
+
+      <Dialog open={notifOpen} onOpenChange={setNotifOpen}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-right">الإشعارات</DialogTitle>
+            <DialogDescription className="text-right">آخر العمليات على حسابك.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto divide-y divide-border">
+            {recent.length === 0 && <div className="text-center text-sm text-muted-foreground py-8">لا توجد إشعارات</div>}
+            {recent.map((t) => (
+              <div key={t.id} className="flex items-center justify-between py-2.5">
+                <div className="text-right">
+                  <div className="text-sm font-bold text-navy">{t.categoryLabel}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {t.tenantName ? `${t.tenantName} · ` : ""}{new Date(t.date).toLocaleDateString("ar-EG")}
+                  </div>
+                </div>
+                <div className={`text-sm font-extrabold tabular-nums ${t.type === "income" ? "text-success" : "text-crimson"}`}>
+                  {t.type === "income" ? "+" : "−"} {t.amount.toLocaleString("en-US")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
