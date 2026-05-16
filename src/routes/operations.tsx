@@ -47,6 +47,7 @@ function ExpenseCell({ v }: { v: number | null }) {
 function ReportsPage() {
   const liveData = useAppData();
   const [selectedYear, setSelectedYear] = useState(liveData.currentYear);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // When viewing an archived year, source ALL data from the archive snapshot
   // so each year is shown completely independently (no data mixing).
