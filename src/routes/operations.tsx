@@ -44,22 +44,27 @@ function ExpenseCell({ v }: { v: number | null }) {
 }
 
 function ReportsPage() {
-  const data = useAppData();
-  const [selectedYear, setSelectedYear] = useState(data.currentYear);
+  const liveData = useAppData();
+  const [selectedYear, setSelectedYear] = useState(liveData.currentYear);
+
+  // When viewing an archived year, source ALL data from the archive snapshot
+  // so each year is shown completely independently (no data mixing).
+  const archive = liveData.archives.find((a) => a.year === selectedYear);
+  const data = archive ? archive.data : liveData;
 
   const tenantsForYear = data.tenants.filter((t) => {
     return new Date(t.entryDate).getFullYear() <= selectedYear;
   });
 
   // Decoupled: derive expense rows from transaction history (not from active services).
-  // This way, deleting a service does NOT erase its historical rows from the report.
-  // Re-linking by category id (and by label fallback) means re-adding a service
-  // with the same name attaches to the same row.
   const yearTxs = data.transactions.filter((t) => t.year === selectedYear);
   const expenseCategories = new Map<string, { id: string; label: string }>();
   for (const t of yearTxs) {
     if (t.type !== "expense") continue;
-    if (t.category === "credit-add") continue; // never appears as expense, just guard
+    if (t.category === "credit-add") continue;
+    // Hide "credit-withdraw" from the report table — its amount is still
+    // subtracted from the grand total below, but no row/label appears.
+    if (t.category === "credit-withdraw") continue;
     if (!expenseCategories.has(t.category)) {
       const liveLabel = data.services.find((s) => s.id === t.category)?.label;
       expenseCategories.set(t.category, { id: t.category, label: liveLabel ?? t.categoryLabel });
@@ -88,12 +93,15 @@ function ReportsPage() {
   const remaining = tenantTotals.map((t, i) => t - expenseTotals[i]);
 
   const statementTotal = remaining.reduce((a, b) => a + b, 0);
-  // Add-credit transactions for this year are counted into "previous balance" line.
+  // Hidden credit withdrawals: subtract from grand total without showing a row.
+  const hiddenWithdrawTotal = yearTxs
+    .filter((t) => t.category === "credit-withdraw")
+    .reduce((s, t) => s + t.amount, 0);
   const yearCredits = yearTxs
     .filter((t) => t.category === "credit-add")
     .reduce((s, t) => s + t.amount, 0);
   const previousBalance = data.previousBalance + yearCredits;
-  const grand = statementTotal + previousBalance;
+  const grand = statementTotal + previousBalance - hiddenWithdrawTotal;
 
   const buildSheetRows = () => {
     const header = ["البيان", ...MONTHS_AR];
@@ -157,8 +165,8 @@ function ReportsPage() {
   const totals = computeYearTotals(selectedYear, data);
   void totals;
 
-  const archiveYears = data.archives.map((a) => a.year);
-  const yearOptions = Array.from(new Set([data.currentYear, ...archiveYears])).sort((a, b) => b - a);
+  const archiveYears = liveData.archives.map((a) => a.year);
+  const yearOptions = Array.from(new Set([liveData.currentYear, ...archiveYears])).sort((a, b) => b - a);
 
   return (
     <MobileShell>

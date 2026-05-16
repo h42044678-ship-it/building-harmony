@@ -343,7 +343,8 @@ export function computeOverallBalance(data: AppData = state) {
   return t.net + data.previousBalance;
 }
 
-// monthly grid for tenant
+// monthly grid for tenant — applies monthly rollforward of overpayments
+// within the same year, capped at the agreed monthly rent.
 export function tenantMonthlyGrid(tenantId: string, year: number, data: AppData = state): (number | "vacated" | null)[] {
   const tenant = data.tenants.find((t) => t.id === tenantId);
   if (!tenant) return Array(12).fill(null);
@@ -351,11 +352,32 @@ export function tenantMonthlyGrid(tenantId: string, year: number, data: AppData 
   const exitMonth = tenant.exitDate && new Date(tenant.exitDate).getFullYear() === year
     ? new Date(tenant.exitDate).getMonth()
     : null;
+
+  // raw paid per month for this tenant/year
+  const paid: number[] = Array(12).fill(0);
   data.transactions
     .filter((t) => t.tenantId === tenantId && t.category === "rent" && t.year === year)
-    .forEach((t) => {
-      grid[t.month] = (grid[t.month] ? Number(grid[t.month]) : 0) + t.amount;
-    });
+    .forEach((t) => { paid[t.month] += t.amount; });
+
+  const entryYear = new Date(tenant.entryDate).getFullYear();
+  const entryMonth = new Date(tenant.entryDate).getMonth();
+  const startMonth = entryYear === year ? entryMonth : 0;
+  const endMonth = exitMonth !== null ? exitMonth : 11;
+  const rent = tenant.monthlyRent || 0;
+
+  let carry = 0;
+  for (let m = startMonth; m <= endMonth; m++) {
+    const available = carry + paid[m];
+    if (rent > 0) {
+      const applied = Math.min(available, rent);
+      carry = available - applied;
+      grid[m] = applied > 0 ? applied : null;
+    } else {
+      grid[m] = available > 0 ? available : null;
+      carry = 0;
+    }
+  }
+
   if (exitMonth !== null) {
     for (let i = exitMonth + 1; i < 12; i++) grid[i] = "vacated";
     if (grid[exitMonth] === null) grid[exitMonth] = "vacated";
