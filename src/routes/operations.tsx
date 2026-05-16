@@ -3,10 +3,11 @@ import { MobileShell } from "@/components/MobileShell";
 import { MONTHS_AR } from "@/data/building";
 import { useAppData, computeYearTotals, tenantMonthlyGrid, serviceMonthlyGrid } from "@/store/data";
 import { ChevronRight, FileSpreadsheet, FileText, Archive } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useState } from "react";
+import html2canvas from "html2canvas";
+import { useRef, useState } from "react";
 
 export const Route = createFileRoute("/operations")({
   head: () => ({
