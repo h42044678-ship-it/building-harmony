@@ -165,8 +165,8 @@ function ReportsPage() {
   const totals = computeYearTotals(selectedYear, data);
   void totals;
 
-  const archiveYears = data.archives.map((a) => a.year);
-  const yearOptions = Array.from(new Set([data.currentYear, ...archiveYears])).sort((a, b) => b - a);
+  const archiveYears = liveData.archives.map((a) => a.year);
+  const yearOptions = Array.from(new Set([liveData.currentYear, ...archiveYears])).sort((a, b) => b - a);
 
   return (
     <MobileShell>
