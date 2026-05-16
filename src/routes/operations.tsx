@@ -230,22 +230,36 @@ function ReportsPage() {
   const exportPDF = async () => {
     const node = reportRef.current;
     if (!node) return;
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      windowWidth: node.scrollWidth,
-    });
-    const imgData = canvas.toDataURL("image/png");
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        windowWidth: node.scrollWidth,
+        // foreignObject rendering preserves modern CSS like oklch() colors
+        foreignObjectRendering: true,
+      });
+    } catch {
+      // fallback without foreignObject (some browsers block it)
+      canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        windowWidth: node.scrollWidth,
+      });
+    }
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    // Header band matching app navy
-    doc.setFillColor(13, 27, 62);
-    doc.rect(0, 0, pageW, 40, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
+    const drawHeader = () => {
+      doc.setFillColor(13, 27, 62);
+      doc.rect(0, 0, pageW, 40, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
+    };
+    drawHeader();
 
     const margin = 20;
     const availW = pageW - margin * 2;
@@ -253,11 +267,9 @@ function ReportsPage() {
     const imgW = availW;
     const imgH = imgW * ratio;
     const startY = 50;
-    // single page if it fits
     if (imgH + startY <= pageH - margin) {
-      doc.addImage(imgData, "PNG", margin, startY, imgW, imgH);
+      doc.addImage(canvas.toDataURL("image/png"), "PNG", margin, startY, imgW, imgH);
     } else {
-      // paginate by slicing
       const pxPerPt = canvas.width / imgW;
       const sliceHeightPt = pageH - startY - margin;
       const sliceHeightPx = sliceHeightPt * pxPerPt;
@@ -269,21 +281,10 @@ function ReportsPage() {
         sliceCanvas.height = Math.min(sliceHeightPx, canvas.height - y);
         const ctx = sliceCanvas.getContext("2d")!;
         ctx.drawImage(canvas, 0, y, canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
-        if (!first) {
-          doc.addPage();
-          doc.setFillColor(13, 27, 62);
-          doc.rect(0, 0, pageW, 40, "F");
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(14);
-          doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
-        }
+        if (!first) { doc.addPage(); drawHeader(); }
         doc.addImage(
-          sliceCanvas.toDataURL("image/png"),
-          "PNG",
-          margin,
-          startY,
-          imgW,
-          (sliceCanvas.height / pxPerPt),
+          sliceCanvas.toDataURL("image/png"), "PNG",
+          margin, startY, imgW, sliceCanvas.height / pxPerPt,
         );
         y += sliceCanvas.height;
         first = false;
