@@ -346,7 +346,7 @@ function ReportsPage() {
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-elevated p-2 overflow-hidden">
+        <div ref={reportRef} className="bg-white rounded-2xl shadow-elevated p-2 overflow-hidden">
           <div className="overflow-x-auto" dir="rtl">
             <table className="w-full border-collapse text-xs">
               <thead>
