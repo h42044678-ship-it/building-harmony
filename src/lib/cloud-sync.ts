@@ -65,22 +65,31 @@ export function initCloudSync() {
 
   // listen to data changes
   window.addEventListener("aqari-data-changed", schedulePush);
-  // back online — flush
+  // back online — flush queued changes
   window.addEventListener("online", () => {
     if (currentUserId && isPending()) pushNow(currentUserId);
   });
+  // periodic safety net in case 'online' didn't fire
+  setInterval(() => {
+    if (currentUserId && isPending() && navigator.onLine) pushNow(currentUserId);
+  }, 30000);
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     if (session?.user) {
       currentUserId = session.user.id;
-      pull(currentUserId);
+      // pull first, then flush any locally-queued offline changes
+      pull(currentUserId).then(() => {
+        if (currentUserId && isPending() && navigator.onLine) pushNow(currentUserId);
+      });
     }
   });
   supabase.auth.onAuthStateChange((_e, session) => {
     if (session?.user) {
       if (currentUserId !== session.user.id) {
         currentUserId = session.user.id;
-        pull(currentUserId);
+        pull(currentUserId).then(() => {
+          if (currentUserId && isPending() && navigator.onLine) pushNow(currentUserId);
+        });
       }
     } else {
       currentUserId = null;
