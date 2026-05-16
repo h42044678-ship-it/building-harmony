@@ -105,24 +105,6 @@ function ReportsPage() {
   const previousBalance = data.previousBalance + yearCredits;
   const grand = statementTotal + previousBalance - hiddenWithdrawTotal;
 
-  const buildSheetRows = () => {
-    const header = ["البيان", ...MONTHS_AR];
-    const rows: (string | number)[][] = [header];
-    tenantGrids.forEach(({ tenant, months }) => {
-      const name = tenant.active ? tenant.fullName : `${tenant.fullName} (غادر)`;
-      rows.push([name, ...months.map((c) => (c === "vacated" ? "غادر" : c ?? ""))]);
-    });
-    rows.push(["الإجمالي", ...tenantTotals.map((t) => (t > 0 ? t : ""))]);
-    expenseGrids.forEach(({ service, months }) => {
-      rows.push([service.label, ...months.map((c) => c ?? "")]);
-    });
-    rows.push(["المتبقي", ...remaining.map((r) => (r !== 0 ? r : ""))]);
-    rows.push([]);
-    rows.push(["إجمالي الكشف", statementTotal]);
-    rows.push(["الرصيد السابق", previousBalance]);
-    rows.push(["الإجمالي الشامل", grand]);
-    return rows;
-  };
 
   // Color palette mirroring the app theme (matches tailwind tokens visually).
   const COLOR = {
