@@ -3,10 +3,11 @@ import { MobileShell } from "@/components/MobileShell";
 import { MONTHS_AR } from "@/data/building";
 import { useAppData, computeYearTotals, tenantMonthlyGrid, serviceMonthlyGrid } from "@/store/data";
 import { ChevronRight, FileSpreadsheet, FileText, Archive } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useState } from "react";
+import html2canvas from "html2canvas";
+import { useRef, useState } from "react";
 
 export const Route = createFileRoute("/operations")({
   head: () => ({
@@ -46,6 +47,7 @@ function ExpenseCell({ v }: { v: number | null }) {
 function ReportsPage() {
   const liveData = useAppData();
   const [selectedYear, setSelectedYear] = useState(liveData.currentYear);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // When viewing an archived year, source ALL data from the archive snapshot
   // so each year is shown completely independently (no data mixing).
@@ -103,62 +105,191 @@ function ReportsPage() {
   const previousBalance = data.previousBalance + yearCredits;
   const grand = statementTotal + previousBalance - hiddenWithdrawTotal;
 
-  const buildSheetRows = () => {
-    const header = ["البيان", ...MONTHS_AR];
-    const rows: (string | number)[][] = [header];
-    tenantGrids.forEach(({ tenant, months }) => {
-      const name = tenant.active ? tenant.fullName : `${tenant.fullName} (غادر)`;
-      rows.push([name, ...months.map((c) => (c === "vacated" ? "غادر" : c ?? ""))]);
-    });
-    rows.push(["الإجمالي", ...tenantTotals.map((t) => (t > 0 ? t : ""))]);
-    expenseGrids.forEach(({ service, months }) => {
-      rows.push([service.label, ...months.map((c) => c ?? "")]);
-    });
-    rows.push(["المتبقي", ...remaining.map((r) => (r !== 0 ? r : ""))]);
-    rows.push([]);
-    rows.push(["إجمالي الكشف", statementTotal]);
-    rows.push(["الرصيد السابق", previousBalance]);
-    rows.push(["الإجمالي الشامل", grand]);
-    return rows;
+
+  // Color palette mirroring the app theme (matches tailwind tokens visually).
+  const COLOR = {
+    navy: "0D1B3E",
+    navyText: "FFFFFF",
+    secondary: "F1F4F9",
+    navyDark: "0D1B3E",
+    success: "10B981",
+    successSoft: "DCFCE7",
+    crimson: "DC2626",
+    crimsonSoft: "FEE2E2",
+    grandRed: "B91C1C",
+    border: "C9D1DC",
   };
 
+  const cellStyle = (
+    bg: string,
+    color = "000000",
+    bold = false,
+    align: "center" | "right" = "center",
+  ) => ({
+    fill: { patternType: "solid", fgColor: { rgb: bg } },
+    font: { name: "Arial", color: { rgb: color }, bold, sz: 10 },
+    alignment: { horizontal: align, vertical: "center", wrapText: true },
+    border: {
+      top: { style: "thin", color: { rgb: COLOR.border } },
+      bottom: { style: "thin", color: { rgb: COLOR.border } },
+      left: { style: "thin", color: { rgb: COLOR.border } },
+      right: { style: "thin", color: { rgb: COLOR.border } },
+    },
+  });
+
   const exportExcel = () => {
-    const ws = XLSX.utils.aoa_to_sheet(buildSheetRows());
+    const wsRows: { v: string | number; s: object }[][] = [];
+
+    // header row: name + months
+    wsRows.push([
+      { v: "البيان", s: cellStyle(COLOR.navy, COLOR.navyText, true) },
+      ...MONTHS_AR.map((m) => ({ v: m, s: cellStyle(COLOR.navy, COLOR.navyText, true) })),
+    ]);
+
+    // tenant rows
+    tenantGrids.forEach(({ tenant, months }) => {
+      const name = tenant.active ? tenant.fullName : `${tenant.fullName} · غادر`;
+      const labelBg = tenant.active ? COLOR.secondary : COLOR.crimsonSoft;
+      const labelFg = tenant.active ? "0D1B3E" : COLOR.crimson;
+      const row: { v: string | number; s: object }[] = [
+        { v: name, s: cellStyle(labelBg, labelFg, true, "right") },
+      ];
+      months.forEach((c) => {
+        if (c === "vacated") row.push({ v: "غادر", s: cellStyle(COLOR.crimson, "FFFFFF", true) });
+        else if (typeof c === "number" && c > 0) row.push({ v: c, s: cellStyle(COLOR.successSoft, "0D1B3E", true) });
+        else row.push({ v: "", s: cellStyle("FFFFFF") });
+      });
+      wsRows.push(row);
+    });
+
+    // totals row
+    if (tenantGrids.length > 0) {
+      wsRows.push([
+        { v: "الإجمالي", s: cellStyle(COLOR.navy, COLOR.navyText, true, "right") },
+        ...tenantTotals.map((t) => ({
+          v: t > 0 ? t : "",
+          s: cellStyle("E2E8F0", "0D1B3E", true),
+        })),
+      ]);
+    }
+
+    // expense rows
+    expenseGrids.forEach(({ service, months }) => {
+      const row: { v: string | number; s: object }[] = [
+        { v: service.label, s: cellStyle(COLOR.secondary, "0D1B3E", false, "right") },
+      ];
+      months.forEach((c) => {
+        row.push({ v: c ?? "", s: cellStyle("FFFFFF") });
+      });
+      wsRows.push(row);
+    });
+
+    // remaining row (success row)
+    if (tenantGrids.length > 0) {
+      wsRows.push([
+        { v: "المتبقي", s: cellStyle(COLOR.success, "FFFFFF", true, "right") },
+        ...remaining.map((r) => ({
+          v: r !== 0 ? r : "",
+          s: cellStyle(COLOR.successSoft, "0D1B3E", true),
+        })),
+      ]);
+    }
+
+    // spacer + summary rows
+    wsRows.push([]);
+    wsRows.push([
+      { v: "إجمالي الكشف", s: cellStyle("FFFFFF", "0D1B3E", true, "right") },
+      { v: statementTotal, s: cellStyle("FFFFFF", "0D1B3E", true) },
+    ]);
+    wsRows.push([
+      { v: "الرصيد السابق", s: cellStyle("FFFFFF", "0D1B3E", true, "right") },
+      { v: previousBalance, s: cellStyle("FFFFFF", "0D1B3E", true) },
+    ]);
+    wsRows.push([
+      { v: "الإجمالي الشامل", s: cellStyle(COLOR.grandRed, "FFFFFF", true, "right") },
+      { v: grand, s: cellStyle(COLOR.grandRed, "FFFFFF", true) },
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsRows.map((r) => r.map((c) => (c ? c.v : ""))));
+    // re-apply styled cells (xlsx-js-style)
+    wsRows.forEach((r, ri) => {
+      r.forEach((c, ci) => {
+        if (!c) return;
+        const addr = XLSX.utils.encode_cell({ r: ri, c: ci });
+        (ws as Record<string, unknown>)[addr] = { v: c.v, s: c.s, t: typeof c.v === "number" ? "n" : "s" };
+      });
+    });
+    ws["!cols"] = [{ wch: 22 }, ...MONTHS_AR.map(() => ({ wch: 12 }))];
+    (ws as Record<string, unknown>)["!views"] = [{ RTL: true }];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `تقرير ${selectedYear}`);
     XLSX.writeFile(wb, `aqari-report-${selectedYear}.xlsx`);
   };
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
+    const node = reportRef.current;
+    if (!node) return;
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        windowWidth: node.scrollWidth,
+        // foreignObject rendering preserves modern CSS like oklch() colors
+        foreignObjectRendering: true,
+      });
+    } catch {
+      // fallback without foreignObject (some browsers block it)
+      canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        windowWidth: node.scrollWidth,
+      });
+    }
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-    const rows = buildSheetRows();
-    doc.setFillColor(13, 27, 62);
-    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 40, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
-    autoTable(doc, {
-      head: [rows[0] as string[]],
-      body: rows.slice(1).map((r) => r.map((c) => String(c ?? ""))),
-      startY: 60,
-      styles: { fontSize: 7, halign: "center", cellPadding: 4 },
-      headStyles: { fillColor: [13, 27, 62], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      didParseCell: (d) => {
-        const raw = d.row.raw as unknown;
-        const txt = Array.isArray(raw) ? String(raw[0] ?? "") : "";
-        if (txt === "الإجمالي" || txt === "المتبقي") {
-          d.cell.styles.fillColor = [16, 185, 129];
-          d.cell.styles.textColor = 255;
-          d.cell.styles.fontStyle = "bold";
-        }
-        if (txt === "الإجمالي الشامل") {
-          d.cell.styles.fillColor = [220, 38, 38];
-          d.cell.styles.textColor = 255;
-          d.cell.styles.fontStyle = "bold";
-        }
-      },
-    });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const drawHeader = () => {
+      doc.setFillColor(13, 27, 62);
+      doc.rect(0, 0, pageW, 40, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.text(`Aqari - Annual Report ${selectedYear}`, 40, 26);
+    };
+    drawHeader();
+
+    const margin = 20;
+    const availW = pageW - margin * 2;
+    const ratio = canvas.height / canvas.width;
+    const imgW = availW;
+    const imgH = imgW * ratio;
+    const startY = 50;
+    if (imgH + startY <= pageH - margin) {
+      doc.addImage(canvas.toDataURL("image/png"), "PNG", margin, startY, imgW, imgH);
+    } else {
+      const pxPerPt = canvas.width / imgW;
+      const sliceHeightPt = pageH - startY - margin;
+      const sliceHeightPx = sliceHeightPt * pxPerPt;
+      let y = 0;
+      let first = true;
+      while (y < canvas.height) {
+        const sliceCanvas = document.createElement("canvas");
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = Math.min(sliceHeightPx, canvas.height - y);
+        const ctx = sliceCanvas.getContext("2d")!;
+        ctx.drawImage(canvas, 0, y, canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
+        if (!first) { doc.addPage(); drawHeader(); }
+        doc.addImage(
+          sliceCanvas.toDataURL("image/png"), "PNG",
+          margin, startY, imgW, sliceCanvas.height / pxPerPt,
+        );
+        y += sliceCanvas.height;
+        first = false;
+      }
+    }
     doc.save(`aqari-report-${selectedYear}.pdf`);
   };
 
@@ -216,7 +347,7 @@ function ReportsPage() {
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-elevated p-2 overflow-hidden">
+        <div ref={reportRef} className="bg-white rounded-2xl shadow-elevated p-2 overflow-hidden">
           <div className="overflow-x-auto" dir="rtl">
             <table className="w-full border-collapse text-xs">
               <thead>
