@@ -245,31 +245,61 @@ function MonthYearPicker({ month, year, onMonth, onYear }: { month: number; year
 function WithdrawDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const data = useAppData();
   const now = new Date();
+  const [target, setTarget] = useState<"tenant" | "service">("tenant");
   const [tenantId, setTenantId] = useState<string>("");
+  const [serviceId, setServiceId] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
-  const reset = () => { setTenantId(""); setAmount(""); setMonth(now.getMonth()); setYear(now.getFullYear()); };
+  const reset = () => { setTarget("tenant"); setTenantId(""); setServiceId(""); setAmount(""); setMonth(now.getMonth()); setYear(now.getFullYear()); };
   const save = () => {
     const a = Number(amount);
-    if (!a || a <= 0 || !tenantId) return;
+    if (!a || a <= 0) return;
     const date = new Date(year, month, Math.min(now.getDate(), 28)).toISOString();
-    dataActions.withdrawToTenant({ tenantId, amount: a, date });
+    if (target === "tenant") {
+      if (!tenantId) return;
+      dataActions.withdrawToTenant({ tenantId, amount: a, date });
+    } else {
+      if (!serviceId) return;
+      const svc = data.services.find((s) => s.id === serviceId);
+      if (!svc) return;
+      dataActions.addTransaction({
+        type: "expense",
+        category: "credit-withdraw",
+        categoryLabel: `سحب رصيد · ${svc.label}`,
+        amount: a,
+        date,
+        note: `سحب رصيد من خدمة ${svc.label}`,
+      });
+    }
     reset(); onClose();
   };
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="text-right">سحب رصيد لمستأجر</DialogTitle>
-          <DialogDescription className="text-right">يُسجَّل كخصم من الرصيد العام ويظهر في التقرير.</DialogDescription>
+          <DialogTitle className="text-right">سحب رصيد</DialogTitle>
+          <DialogDescription className="text-right">يُسجَّل كخصم يظهر في التقرير.</DialogDescription>
         </DialogHeader>
-        <select value={tenantId} onChange={(e) => setTenantId(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 outline-none">
-          <option value="">— اختر المستأجر —</option>
-          {data.tenants.filter((t) => t.active).map((t) => (
-            <option key={t.id} value={t.id}>{t.fullName}</option>
-          ))}
-        </select>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setTarget("tenant")} className={`py-2 rounded-xl text-xs font-bold border ${target === "tenant" ? "bg-navy text-navy-foreground border-navy" : "bg-secondary text-navy border-border"}`}>مستأجر</button>
+          <button type="button" onClick={() => setTarget("service")} className={`py-2 rounded-xl text-xs font-bold border ${target === "service" ? "bg-navy text-navy-foreground border-navy" : "bg-secondary text-navy border-border"}`}>خدمة</button>
+        </div>
+        {target === "tenant" ? (
+          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 outline-none">
+            <option value="">— اختر المستأجر —</option>
+            {data.tenants.filter((t) => t.active).map((t) => (
+              <option key={t.id} value={t.id}>{t.fullName}</option>
+            ))}
+          </select>
+        ) : (
+          <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 outline-none">
+            <option value="">— اختر الخدمة —</option>
+            {data.services.filter((s) => s.id !== "rent").map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        )}
         <input dir="ltr" inputMode="numeric" placeholder="المبلغ" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} className="w-full bg-secondary rounded-xl px-4 py-3 outline-none" />
         <MonthYearPicker month={month} year={year} onMonth={setMonth} onYear={setYear} />
         <DialogFooter><button onClick={save} className="w-full bg-crimson text-crimson-foreground rounded-2xl py-3 font-bold">تأكيد السحب</button></DialogFooter>
