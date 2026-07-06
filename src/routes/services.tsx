@@ -40,7 +40,7 @@ function ServicesPage() {
 
   const extras: { id: string; label: string; iconKey: string; kind: "income" | "expense"; onClick: () => void }[] = [
     { id: "credit-add", label: "إضافة رصيد", iconKey: "PlusCircle", kind: "income", onClick: () => setModal({ kind: "addCredit" }) },
-    { id: "credit-out", label: "سحب رصيد لمستأجر", iconKey: "MinusCircle", kind: "expense", onClick: () => setModal({ kind: "withdraw" }) },
+    { id: "credit-out", label: "سحب رصيد", iconKey: "MinusCircle", kind: "expense", onClick: () => setModal({ kind: "withdraw" }) },
     { id: "exit", label: "إخراج مستأجر", iconKey: "UserMinus", kind: "expense", onClick: () => setModal({ kind: "exitTenant" }) },
   ];
 
