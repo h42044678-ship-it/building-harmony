@@ -64,12 +64,12 @@ function ReportsPage() {
   for (const t of yearTxs) {
     if (t.type !== "expense") continue;
     if (t.category === "credit-add") continue;
-    // Hide "credit-withdraw" from the report table — its amount is still
-    // subtracted from the grand total below, but no row/label appears.
-    if (t.category === "credit-withdraw") continue;
     if (!expenseCategories.has(t.category)) {
       const liveLabel = data.services.find((s) => s.id === t.category)?.label;
-      expenseCategories.set(t.category, { id: t.category, label: liveLabel ?? t.categoryLabel });
+      const label = t.category === "credit-withdraw"
+        ? "سحب رصيد"
+        : (liveLabel ?? t.categoryLabel);
+      expenseCategories.set(t.category, { id: t.category, label });
     }
   }
 
@@ -95,15 +95,11 @@ function ReportsPage() {
   const remaining = tenantTotals.map((t, i) => t - expenseTotals[i]);
 
   const statementTotal = remaining.reduce((a, b) => a + b, 0);
-  // Hidden credit withdrawals: subtract from grand total without showing a row.
-  const hiddenWithdrawTotal = yearTxs
-    .filter((t) => t.category === "credit-withdraw")
-    .reduce((s, t) => s + t.amount, 0);
   const yearCredits = yearTxs
     .filter((t) => t.category === "credit-add")
     .reduce((s, t) => s + t.amount, 0);
   const previousBalance = data.previousBalance + yearCredits;
-  const grand = statementTotal + previousBalance - hiddenWithdrawTotal;
+  const grand = statementTotal + previousBalance;
 
 
   // Color palette mirroring the app theme (matches tailwind tokens visually).
