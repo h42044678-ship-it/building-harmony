@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Building2, Lock, Mail, Loader2, User } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "تسجيل الدخول — عقاري" }] }),
-  component: AuthPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
+  component: () => null,
 });
 
 function AuthPage() {
