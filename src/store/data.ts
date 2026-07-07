@@ -355,11 +355,14 @@ export function tenantMonthlyGrid(tenantId: string, year: number, data: AppData 
     ? new Date(tenant.exitDate).getMonth()
     : null;
 
-  // raw paid per month for this tenant/year
+  // raw paid per month for this tenant/year (rent income minus credit-withdraw corrections)
   const paid: number[] = Array(12).fill(0);
   data.transactions
     .filter((t) => t.tenantId === tenantId && t.category === "rent" && t.year === year)
     .forEach((t) => { paid[t.month] += t.amount; });
+  data.transactions
+    .filter((t) => t.tenantId === tenantId && t.category === "credit-withdraw" && t.year === year)
+    .forEach((t) => { paid[t.month] -= t.amount; });
 
   const entryYear = new Date(tenant.entryDate).getFullYear();
   const entryMonth = new Date(tenant.entryDate).getMonth();
