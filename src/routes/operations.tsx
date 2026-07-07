@@ -413,6 +413,13 @@ function ReportsPage() {
           <SummaryRow label="الإجمالي الشامل" value={grand} highlight />
         </div>
 
+        {/* Recent operations — undo any entry */}
+        {!archive && (
+          <RecentOperations
+            transactions={liveData.transactions.filter((t) => t.year === selectedYear).slice(0, 20)}
+          />
+        )}
+
         {/* Per-tenant statements */}
         {tenantGrids.length > 0 && (
           <div className="mt-4">
