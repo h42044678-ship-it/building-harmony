@@ -390,13 +390,15 @@ export function tenantMonthlyGrid(tenantId: string, year: number, data: AppData 
   return grid;
 }
 
-// monthly grid for an expense service
+// monthly grid for an expense service (net of credit-withdraw corrections targeting it)
 export function serviceMonthlyGrid(serviceId: string, year: number, data: AppData = state): (number | null)[] {
-  const grid: (number | null)[] = Array(12).fill(null);
+  const totals: number[] = Array(12).fill(0);
+  const touched: boolean[] = Array(12).fill(false);
   data.transactions
     .filter((t) => t.category === serviceId && t.year === year)
-    .forEach((t) => {
-      grid[t.month] = (grid[t.month] ?? 0) + t.amount;
-    });
-  return grid;
+    .forEach((t) => { totals[t.month] += t.amount; touched[t.month] = true; });
+  data.transactions
+    .filter((t) => t.category === "credit-withdraw" && t.correctionTargetCategory === serviceId && t.year === year)
+    .forEach((t) => { totals[t.month] -= t.amount; touched[t.month] = true; });
+  return totals.map((v, i) => (touched[i] ? v : null));
 }
