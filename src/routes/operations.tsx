@@ -483,3 +483,75 @@ function SummaryRow({ label, value, highlight }: { label: string; value: number;
     </div>
   );
 }
+
+type TxRow = {
+  id: string;
+  type: "income" | "expense";
+  categoryLabel: string;
+  tenantName?: string;
+  amount: number;
+  date: string;
+  month: number;
+  note?: string;
+};
+
+function RecentOperations({ transactions }: { transactions: TxRow[] }) {
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  if (transactions.length === 0) return null;
+  const target = transactions.find((t) => t.id === confirmId);
+  return (
+    <div className="mt-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Undo2 className="w-4 h-4 text-crimson" />
+        <h3 className="font-extrabold text-navy text-sm">تراجع عن عملية</h3>
+      </div>
+      <div className="space-y-2">
+        {transactions.map((t) => (
+          <div key={t.id} className="bg-white rounded-2xl border border-border p-3 flex items-center justify-between gap-2">
+            <div className="text-right min-w-0 flex-1">
+              <div className="text-sm font-bold text-navy truncate">
+                {t.categoryLabel}
+                {t.tenantName ? <span className="text-muted-foreground font-normal"> · {t.tenantName}</span> : null}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {MONTHS_AR[t.month]} · {t.type === "income" ? "دخل" : "مصروف"} ·{" "}
+                <span className={t.type === "income" ? "text-success font-bold" : "text-crimson font-bold"}>
+                  {fmt(t.amount)} ر.ي
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setConfirmId(t.id)}
+              className="shrink-0 px-3 py-2 bg-crimson/10 text-crimson rounded-xl text-xs font-bold flex items-center gap-1"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> تراجع
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={!!confirmId} onOpenChange={(o) => { if (!o) setConfirmId(null); }}>
+        <DialogContent className="max-w-xs rounded-3xl text-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">تأكيد التراجع</DialogTitle>
+            <DialogDescription className="text-center">
+              {target ? <>سيتم حذف عملية «{target.categoryLabel}» بقيمة {fmt(target.amount)} ر.ي.</> : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row gap-2 sm:justify-center">
+            <button onClick={() => setConfirmId(null)} className="flex-1 py-2.5 rounded-2xl bg-secondary text-navy font-bold text-sm">
+              إلغاء
+            </button>
+            <button
+              onClick={() => { if (confirmId) dataActions.removeTransaction(confirmId); setConfirmId(null); }}
+              className="flex-1 py-2.5 rounded-2xl bg-crimson text-crimson-foreground font-bold text-sm"
+            >
+              حذف
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
