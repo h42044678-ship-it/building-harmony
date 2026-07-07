@@ -270,6 +270,7 @@ function WithdrawDialog({ open, onClose }: { open: boolean; onClose: () => void 
         amount: a,
         date,
         note: `سحب رصيد من خدمة ${svc.label}`,
+        correctionTargetCategory: serviceId,
       });
     }
     reset(); onClose();

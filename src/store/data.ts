@@ -36,6 +36,7 @@ export interface Transaction {
   year: number;
   month: number; // 0-11
   note?: string;
+  correctionTargetCategory?: string; // for credit-withdraw: which service id it corrects
 }
 
 export interface ServiceDef {
@@ -228,7 +229,7 @@ export const dataActions = {
     emit();
   },
 
-  addTransaction(input: { type: TxType; category: string; categoryLabel: string; amount: number; date?: string; tenantId?: string; note?: string }) {
+  addTransaction(input: { type: TxType; category: string; categoryLabel: string; amount: number; date?: string; tenantId?: string; note?: string; correctionTargetCategory?: string }) {
     const date = input.date ?? new Date().toISOString();
     const d = new Date(date);
     const tenant = input.tenantId ? state.tenants.find((t) => t.id === input.tenantId) : undefined;
@@ -244,6 +245,7 @@ export const dataActions = {
       year: d.getFullYear(),
       month: d.getMonth(),
       note: input.note,
+      correctionTargetCategory: input.correctionTargetCategory,
     };
     state = { ...state, transactions: [tx, ...state.transactions] };
     // handle overpayment credit when paying rent
@@ -353,11 +355,14 @@ export function tenantMonthlyGrid(tenantId: string, year: number, data: AppData 
     ? new Date(tenant.exitDate).getMonth()
     : null;
 
-  // raw paid per month for this tenant/year
+  // raw paid per month for this tenant/year (rent income minus credit-withdraw corrections)
   const paid: number[] = Array(12).fill(0);
   data.transactions
     .filter((t) => t.tenantId === tenantId && t.category === "rent" && t.year === year)
     .forEach((t) => { paid[t.month] += t.amount; });
+  data.transactions
+    .filter((t) => t.tenantId === tenantId && t.category === "credit-withdraw" && t.year === year)
+    .forEach((t) => { paid[t.month] -= t.amount; });
 
   const entryYear = new Date(tenant.entryDate).getFullYear();
   const entryMonth = new Date(tenant.entryDate).getMonth();
@@ -385,13 +390,15 @@ export function tenantMonthlyGrid(tenantId: string, year: number, data: AppData 
   return grid;
 }
 
-// monthly grid for an expense service
+// monthly grid for an expense service (net of credit-withdraw corrections targeting it)
 export function serviceMonthlyGrid(serviceId: string, year: number, data: AppData = state): (number | null)[] {
-  const grid: (number | null)[] = Array(12).fill(null);
+  const totals: number[] = Array(12).fill(0);
+  const touched: boolean[] = Array(12).fill(false);
   data.transactions
     .filter((t) => t.category === serviceId && t.year === year)
-    .forEach((t) => {
-      grid[t.month] = (grid[t.month] ?? 0) + t.amount;
-    });
-  return grid;
+    .forEach((t) => { totals[t.month] += t.amount; touched[t.month] = true; });
+  data.transactions
+    .filter((t) => t.category === "credit-withdraw" && t.correctionTargetCategory === serviceId && t.year === year)
+    .forEach((t) => { totals[t.month] -= t.amount; touched[t.month] = true; });
+  return totals.map((v, i) => (touched[i] ? v : null));
 }

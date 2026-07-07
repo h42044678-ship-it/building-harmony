@@ -64,12 +64,10 @@ function ReportsPage() {
   for (const t of yearTxs) {
     if (t.type !== "expense") continue;
     if (t.category === "credit-add") continue;
+    if (t.category === "credit-withdraw") continue; // hidden: applied as correction to target row
     if (!expenseCategories.has(t.category)) {
       const liveLabel = data.services.find((s) => s.id === t.category)?.label;
-      const label = t.category === "credit-withdraw"
-        ? "سحب رصيد"
-        : (liveLabel ?? t.categoryLabel);
-      expenseCategories.set(t.category, { id: t.category, label });
+      expenseCategories.set(t.category, { id: t.category, label: liveLabel ?? t.categoryLabel });
     }
   }
 
