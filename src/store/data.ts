@@ -229,7 +229,7 @@ export const dataActions = {
     emit();
   },
 
-  addTransaction(input: { type: TxType; category: string; categoryLabel: string; amount: number; date?: string; tenantId?: string; note?: string }) {
+  addTransaction(input: { type: TxType; category: string; categoryLabel: string; amount: number; date?: string; tenantId?: string; note?: string; correctionTargetCategory?: string }) {
     const date = input.date ?? new Date().toISOString();
     const d = new Date(date);
     const tenant = input.tenantId ? state.tenants.find((t) => t.id === input.tenantId) : undefined;
@@ -245,6 +245,7 @@ export const dataActions = {
       year: d.getFullYear(),
       month: d.getMonth(),
       note: input.note,
+      correctionTargetCategory: input.correctionTargetCategory,
     };
     state = { ...state, transactions: [tx, ...state.transactions] };
     // handle overpayment credit when paying rent
