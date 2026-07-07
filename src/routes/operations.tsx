@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
 import { MONTHS_AR } from "@/data/building";
-import { useAppData, computeYearTotals, tenantMonthlyGrid, serviceMonthlyGrid } from "@/store/data";
-import { ChevronRight, FileSpreadsheet, FileText, Archive } from "lucide-react";
+import { useAppData, computeYearTotals, tenantMonthlyGrid, serviceMonthlyGrid, dataActions } from "@/store/data";
+import { ChevronRight, FileSpreadsheet, FileText, Archive, Undo2, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
