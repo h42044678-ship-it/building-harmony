@@ -36,6 +36,7 @@ export interface Transaction {
   year: number;
   month: number; // 0-11
   note?: string;
+  correctionTargetCategory?: string; // for credit-withdraw: which service id it corrects
 }
 
 export interface ServiceDef {
