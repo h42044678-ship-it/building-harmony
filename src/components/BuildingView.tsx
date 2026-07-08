@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAppData, dataActions } from "@/store/data";
 import { useApartments } from "@/store/apartments";
 import type { ApartmentView } from "@/store/apartments";
-import { AlertCircle, CheckCircle2, Plus, DoorClosed, CalendarDays, Wallet, Phone, UserPlus, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Plus, DoorClosed, CalendarDays, Wallet, Phone, UserPlus, X, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
