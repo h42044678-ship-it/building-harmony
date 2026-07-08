@@ -57,6 +57,7 @@ export function BuildingView() {
   const data = useAppData();
   const [selected, setSelected] = useState<ApartmentView | null>(null);
   const [addOpen, setAddOpen] = useState<string | null>(null); // apartment id
+  const [editId, setEditId] = useState<string | null>(null); // tenant id
   const floors = [3, 2, 1];
 
   const recent = data.transactions.slice(0, 5);
