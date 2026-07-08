@@ -213,6 +213,38 @@ export const dataActions = {
     emit();
   },
 
+  updateTenant(tenantId: string, patch: { fullName?: string; phone?: string; monthlyRent?: number; entryDate?: string; apartmentId?: string }) {
+    const t = state.tenants.find((x) => x.id === tenantId);
+    if (!t) return;
+    const nextApartmentId = patch.apartmentId ?? t.apartmentId;
+    const changingApt = nextApartmentId !== t.apartmentId;
+    if (changingApt) {
+      const dest = state.apartments.find((a) => a.id === nextApartmentId);
+      if (!dest || dest.currentTenantId) return;
+    }
+    const newName = patch.fullName?.trim();
+    state = {
+      ...state,
+      tenants: state.tenants.map((x) => x.id === tenantId ? {
+        ...x,
+        fullName: newName || x.fullName,
+        phone: patch.phone !== undefined ? (patch.phone.trim() || undefined) : x.phone,
+        monthlyRent: patch.monthlyRent ?? x.monthlyRent,
+        entryDate: patch.entryDate ?? x.entryDate,
+        apartmentId: nextApartmentId,
+      } : x),
+      apartments: changingApt ? state.apartments.map((a) => {
+        if (a.id === t.apartmentId) return { ...a, currentTenantId: undefined };
+        if (a.id === nextApartmentId) return { ...a, currentTenantId: tenantId };
+        return a;
+      }) : state.apartments,
+      transactions: newName ? state.transactions.map((tx) => tx.tenantId === tenantId ? { ...tx, tenantName: newName } : tx) : state.transactions,
+    };
+    emit();
+  },
+
+
+
   addService(s: { label: string; iconKey: string; kind: TxType }) {
     const label = s.label.trim();
     // Re-linking: if previous transactions used this label, reuse the same category id
