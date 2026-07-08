@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAppData, dataActions } from "@/store/data";
 import { useApartments } from "@/store/apartments";
 import type { ApartmentView } from "@/store/apartments";
-import { AlertCircle, CheckCircle2, Plus, DoorClosed, CalendarDays, Wallet, Phone, UserPlus, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Plus, DoorClosed, CalendarDays, Wallet, Phone, UserPlus, X, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,7 @@ export function BuildingView() {
   const data = useAppData();
   const [selected, setSelected] = useState<ApartmentView | null>(null);
   const [addOpen, setAddOpen] = useState<string | null>(null); // apartment id
+  const [editId, setEditId] = useState<string | null>(null); // tenant id
   const floors = [3, 2, 1];
 
   const recent = data.transactions.slice(0, 5);
@@ -155,6 +156,12 @@ export function BuildingView() {
                   >
                     إغلاق
                   </button>
+                  <button
+                    onClick={() => { if (selected.tenantId) { setEditId(selected.tenantId); setSelected(null); } }}
+                    className="flex-1 py-2.5 rounded-2xl bg-gradient-crimson text-crimson-foreground font-bold text-sm shadow-crimson flex items-center justify-center gap-1"
+                  >
+                    <Pencil className="w-4 h-4" /> تعديل
+                  </button>
                 </DialogFooter>
               </div>
             </>
@@ -163,6 +170,7 @@ export function BuildingView() {
       </Dialog>
 
       <AddTenantDialog apartmentId={addOpen} onClose={() => setAddOpen(null)} />
+      <EditTenantDialog tenantId={editId} onClose={() => setEditId(null)} />
     </section>
   );
 }
@@ -240,3 +248,84 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+function EditTenantDialog({ tenantId, onClose }: { tenantId: string | null; onClose: () => void }) {
+  const data = useAppData();
+  const tenant = tenantId ? data.tenants.find((t) => t.id === tenantId) : null;
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [rent, setRent] = useState("");
+  const [date, setDate] = useState("");
+  const [apartmentId, setApartmentId] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [lastId, setLastId] = useState<string | null>(null);
+
+  if (tenant && lastId !== tenant.id) {
+    setLastId(tenant.id);
+    setFullName(tenant.fullName);
+    setPhone(tenant.phone ?? "");
+    setRent(String(tenant.monthlyRent));
+    setDate(tenant.entryDate.slice(0, 10));
+    setApartmentId(tenant.apartmentId);
+    setErr(null);
+  }
+
+  const availableApts = data.apartments.filter((a) => !a.currentTenantId || a.currentTenantId === tenant?.id);
+
+  const save = () => {
+    if (!tenant) return;
+    setErr(null);
+    if (!fullName.trim()) return setErr("الاسم مطلوب");
+    const r = Number(rent);
+    if (!r || r <= 0) return setErr("قيمة الإيجار غير صحيحة");
+    dataActions.updateTenant(tenant.id, {
+      fullName,
+      phone,
+      monthlyRent: r,
+      entryDate: new Date(date).toISOString(),
+      apartmentId,
+    });
+    setLastId(null);
+    onClose();
+  };
+
+  return (
+    <Dialog open={!!tenant} onOpenChange={(o) => { if (!o) { setLastId(null); onClose(); } }}>
+      <DialogContent className="max-w-sm rounded-3xl">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2"><Pencil className="w-5 h-5 text-crimson" /> تعديل بيانات المستأجر</DialogTitle>
+          <DialogDescription className="text-right">حدّث بيانات المستأجر.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Field label="الاسم الكامل">
+            <input dir="rtl" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" />
+          </Field>
+          <Field label="رقم الهاتف">
+            <input dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" />
+          </Field>
+          <Field label="الإيجار الشهري (ر.ي)">
+            <input dir="ltr" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value.replace(/\D/g, ""))} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" />
+          </Field>
+          <Field label="تاريخ الدخول">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none" />
+          </Field>
+          <Field label="الشقة">
+            <select value={apartmentId} onChange={(e) => setApartmentId(e.target.value)} className="w-full bg-secondary rounded-xl px-3 py-3 text-sm outline-none">
+              {availableApts.map((a) => (
+                <option key={a.id} value={a.id}>شقة {a.id} · الطابق {a.floor}</option>
+              ))}
+            </select>
+          </Field>
+          {err && <div className="text-xs text-crimson text-center">{err}</div>}
+        </div>
+        <DialogFooter className="flex-row gap-2">
+          <button onClick={() => { setLastId(null); onClose(); }} className="flex-1 py-2.5 rounded-2xl bg-secondary text-navy font-bold text-sm">
+            <X className="w-4 h-4 inline ml-1" /> إلغاء
+          </button>
+          <button onClick={save} className="flex-1 py-2.5 rounded-2xl bg-gradient-crimson text-crimson-foreground font-bold text-sm shadow-crimson">حفظ التعديلات</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
