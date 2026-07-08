@@ -340,9 +340,40 @@ export function computeYearTotals(year: number, data: AppData = state) {
   return { totalIncome, totalExpense, net: totalIncome - totalExpense };
 }
 
+// Mirrors the report's "الإجمالي الشامل" (grand) calculation exactly, so the
+// header balance always equals the report total.
 export function computeOverallBalance(data: AppData = state) {
-  const t = computeYearTotals(data.currentYear, data);
-  return t.net + data.previousBalance;
+  const year = data.currentYear;
+  const yearTxs = data.transactions.filter((t) => t.year === year);
+
+  // tenants row totals (same cap/carry logic as the report)
+  const tenantsForYear = data.tenants.filter(
+    (t) => new Date(t.entryDate).getFullYear() <= year,
+  );
+  let tenantSum = 0;
+  for (const t of tenantsForYear) {
+    const grid = tenantMonthlyGrid(t.id, year, data);
+    for (const v of grid) if (typeof v === "number") tenantSum += v;
+  }
+
+  // expense categories derived from history (matches report rows)
+  const catIds = new Set<string>();
+  for (const t of yearTxs) {
+    if (t.type !== "expense") continue;
+    if (t.category === "credit-add" || t.category === "credit-withdraw") continue;
+    catIds.add(t.category);
+  }
+  let expenseSum = 0;
+  for (const id of catIds) {
+    const grid = serviceMonthlyGrid(id, year, data);
+    for (const v of grid) if (v !== null) expenseSum += v;
+  }
+
+  const yearCredits = yearTxs
+    .filter((t) => t.category === "credit-add")
+    .reduce((s, t) => s + t.amount, 0);
+
+  return tenantSum - expenseSum + data.previousBalance + yearCredits;
 }
 
 // monthly grid for tenant — applies monthly rollforward of overpayments
