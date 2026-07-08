@@ -156,6 +156,12 @@ export function BuildingView() {
                   >
                     إغلاق
                   </button>
+                  <button
+                    onClick={() => { if (selected.tenantId) { setEditId(selected.tenantId); setSelected(null); } }}
+                    className="flex-1 py-2.5 rounded-2xl bg-gradient-crimson text-crimson-foreground font-bold text-sm shadow-crimson flex items-center justify-center gap-1"
+                  >
+                    <Pencil className="w-4 h-4" /> تعديل
+                  </button>
                 </DialogFooter>
               </div>
             </>
@@ -164,6 +170,7 @@ export function BuildingView() {
       </Dialog>
 
       <AddTenantDialog apartmentId={addOpen} onClose={() => setAddOpen(null)} />
+      <EditTenantDialog tenantId={editId} onClose={() => setEditId(null)} />
     </section>
   );
 }
