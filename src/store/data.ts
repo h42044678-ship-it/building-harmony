@@ -167,6 +167,37 @@ export function tenantPaidAmount(tenantId: string, txs: Transaction[]) {
     .filter((t) => t.tenantId === tenantId && t.category === "rent")
     .reduce((s, t) => s + t.amount, 0);
 }
+  updateTenant(tenantId: string, patch: { fullName?: string; phone?: string; monthlyRent?: number; entryDate?: string; apartmentId?: string }) {
+    const t = state.tenants.find((x) => x.id === tenantId);
+    if (!t) return;
+    const nextApartmentId = patch.apartmentId ?? t.apartmentId;
+    const changingApt = nextApartmentId !== t.apartmentId;
+    // if moving apartments, ensure destination is free
+    if (changingApt) {
+      const dest = state.apartments.find((a) => a.id === nextApartmentId);
+      if (!dest || dest.currentTenantId) return;
+    }
+    state = {
+      ...state,
+      tenants: state.tenants.map((x) => x.id === tenantId ? {
+        ...x,
+        fullName: patch.fullName?.trim() || x.fullName,
+        phone: patch.phone !== undefined ? (patch.phone.trim() || undefined) : x.phone,
+        monthlyRent: patch.monthlyRent ?? x.monthlyRent,
+        entryDate: patch.entryDate ?? x.entryDate,
+        apartmentId: nextApartmentId,
+      } : x),
+      apartments: changingApt ? state.apartments.map((a) => {
+        if (a.id === t.apartmentId) return { ...a, currentTenantId: undefined };
+        if (a.id === nextApartmentId) return { ...a, currentTenantId: tenantId };
+        return a;
+      }) : state.apartments,
+      // reflect the new name on past transactions so reports/notifications stay in sync
+      transactions: patch.fullName ? state.transactions.map((tx) => tx.tenantId === tenantId ? { ...tx, tenantName: patch.fullName!.trim() } : tx) : state.transactions,
+    };
+    emit();
+  },
+
 
 export function tenantDue(tenant: Tenant, txs: Transaction[]) {
   const elapsedMonths = monthsBetween(tenant.entryDate);
